@@ -1,3 +1,13 @@
-annotations
-Images
-
+annotations/
+images/
+Images/
+.venv/
+__pycache__/
+*.pyc
+checkpoints/
+mlruns/
+wandb/
+manifests/
+*.pt
+*.pth
+*.onnx
