@@ -517,6 +517,15 @@ def get_dataset_splits(
     return train_names, val_names, test_names
 
 
+def pet_collate_fn(batch):
+    """Custom collate function to handle variable metadata dictionaries gracefully."""
+    corrupted = torch.stack([item[0] for item in batch], dim=0)
+    clean = torch.stack([item[1] for item in batch], dim=0)
+    labels = torch.stack([item[2] for item in batch], dim=0)
+    meta = [item[3] for item in batch]
+    return corrupted, clean, labels, meta
+
+
 def get_dataloaders(
     base_dir: str,
     batch_size: int = 32,
@@ -562,6 +571,7 @@ def get_dataloaders(
         shuffle=True,
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
+        collate_fn=pet_collate_fn,
         drop_last=True,
     )
 
@@ -571,6 +581,7 @@ def get_dataloaders(
         shuffle=False,
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
+        collate_fn=pet_collate_fn,
         drop_last=False,
     )
 
