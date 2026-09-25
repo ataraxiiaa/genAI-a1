@@ -1,0 +1,27 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: omnirestorer-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount trained ONNX models and dataset images without bloating image size
+      - ./checkpoints:/app/checkpoints
+      - ./universal-restoration/checkpoints:/app/universal-restoration/checkpoints
+      - ./images:/app/images
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: omnirestorer-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
