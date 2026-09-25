@@ -18,3 +18,6 @@
 Mean Absolute Error (L1) : Measures average pixel difference (smooth)
 Structural Similarity (SSIM): Measures contrast, luminance, structure (perceptual)
 Peak Signal-to-Noise Ratio (PSNR): Logarithmic scale of reconstruction quality
+
+- ONNX is not python its a c++ inference engine we can use the .onnx file in other programming languages and platfroms like it's basically a model file format for deployment
+  since it cannot understand python and see whats going on we use **TRACING** send a package with same dimensions so the onnx engine can trace/record the operations performed on it and then create a graph and see what steps it went through
