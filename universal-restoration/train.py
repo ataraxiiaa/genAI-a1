@@ -10,6 +10,7 @@ Features:
 - Saves visual inspection grids: Clean vs Corrupted vs Restored vs Error Map
 """
 
+import json
 import os
 import sys
 import argparse
@@ -188,6 +189,17 @@ def save_visual_samples(
 
 
 def train(args):
+    # If a config JSON is provided (or if checkpoints/best_hyperparameters.json exists), load it
+    if hasattr(args, "config") and args.config and os.path.exists(args.config):
+        print(f"Loading optimal hyperparameters from Optuna config: {args.config}")
+        with open(args.config, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+            params = cfg.get("best_params", cfg)
+            for k, v in params.items():
+                if hasattr(args, k):
+                    setattr(args, k, v)
+                    print(f"  Applied {k}: {v}")
+
     # Set device and seed
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
@@ -295,6 +307,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_dir", type=str, default="checkpoints", help="Directory to save checkpoints")
     parser.add_argument("--samples_dir", type=str, default="visual_samples", help="Directory to save visual images")
     parser.add_argument("--sample_interval", type=int, default=3, help="Epoch interval to save visual samples")
+    parser.add_argument("--config", type=str, default=None, help="Path to best_hyperparameters.json from Optuna")
     parser.add_argument("--no_cuda", action="store_true", help="Disable CUDA training")
 
     args = parser.parse_args()

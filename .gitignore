@@ -11,3 +11,5 @@ manifests/
 *.pt
 *.pth
 *.onnx
+
+visual_samples

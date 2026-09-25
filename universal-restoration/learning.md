@@ -14,3 +14,7 @@
   3. SwiLU (Swish-GELU Hybrid) smooth non-linearities
 
 - Optimizer step adamW (udpating weights) gives momentum and adaptive learning rate
+
+Mean Absolute Error (L1) : Measures average pixel difference (smooth)
+Structural Similarity (SSIM): Measures contrast, luminance, structure (perceptual)
+Peak Signal-to-Noise Ratio (PSNR): Logarithmic scale of reconstruction quality
