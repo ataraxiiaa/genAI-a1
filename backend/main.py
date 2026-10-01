@@ -34,16 +34,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Base Paths
+# Base Paths (Supports both local host execution and Docker container /app paths)
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-ONNX_TASK1_PATH = os.path.join(WORKSPACE_ROOT, "checkpoints", "universal_ae.onnx")
-if not os.path.exists(ONNX_TASK1_PATH):
-    ONNX_TASK1_PATH = os.path.join(WORKSPACE_ROOT, "universal-restoration", "checkpoints", "universal_ae.onnx")
+CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
+
+POSSIBLE_ONNX_PATHS = [
+    os.path.join(WORKSPACE_ROOT, "checkpoints", "universal_ae.onnx"),
+    os.path.join(CURRENT_DIR, "checkpoints", "universal_ae.onnx"),
+    os.path.join(WORKSPACE_ROOT, "universal-restoration", "checkpoints", "universal_ae.onnx"),
+    os.path.join(CURRENT_DIR, "universal-restoration", "checkpoints", "universal_ae.onnx"),
+]
+ONNX_TASK1_PATH = next((p for p in POSSIBLE_ONNX_PATHS if os.path.exists(p)), POSSIBLE_ONNX_PATHS[0])
 
 # Find dataset images directory
 POSSIBLE_IMG_DIRS = [
     os.path.join(WORKSPACE_ROOT, "images"),
+    os.path.join(CURRENT_DIR, "images"),
     os.path.join(WORKSPACE_ROOT, "Images"),
+    os.path.join(CURRENT_DIR, "Images"),
 ]
 IMAGES_DIR = next((d for d in POSSIBLE_IMG_DIRS if os.path.exists(d)), None)
 
@@ -52,8 +60,11 @@ task1_engine: Optional[UniversalRestorationEngine] = None
 if os.path.exists(ONNX_TASK1_PATH):
     try:
         task1_engine = UniversalRestorationEngine(ONNX_TASK1_PATH)
+        print(f"Loaded Task 1 ONNX model from: {ONNX_TASK1_PATH}")
     except Exception as e:
         print(f"Warning: Failed to load ONNX Task 1: {e}")
+else:
+    print(f"Warning: Task 1 ONNX model not found at candidate paths: {POSSIBLE_ONNX_PATHS}")
 
 
 # ==============================================================================

@@ -521,9 +521,11 @@ def pet_collate_fn(batch):
     """Custom collate function to handle variable metadata dictionaries gracefully."""
     corrupted = torch.stack([item[0] for item in batch], dim=0)
     clean = torch.stack([item[1] for item in batch], dim=0)
-    labels = torch.stack([item[2] for item in batch], dim=0)
+    labels = torch.stack([item[2] if isinstance(item[2], torch.Tensor) else torch.tensor(item[2], dtype=torch.long) for item in batch], dim=0)
     meta = [item[3] for item in batch]
     return corrupted, clean, labels, meta
+
+
 
 
 def get_dataloaders(

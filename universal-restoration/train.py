@@ -28,6 +28,11 @@ from torchmetrics.functional.image import peak_signal_noise_ratio, structural_si
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from AE import DenoisingAutoencoder, UDAELoss
 from loader import get_dataloaders, CORRUPTION_NAMES
+try:
+    from track_training_excel import append_epoch_record
+except ImportError:
+    append_epoch_record = None
+
 
 
 def train_one_epoch(
@@ -263,8 +268,8 @@ def train(args):
         )
         print(f"           Breakdown -> {breakdown_str}")
 
-        # D. Save Best Model Checkpoint
-        if val_metrics["val_loss"] < best_val_loss:
+        is_best = val_metrics["val_loss"] < best_val_loss
+        if is_best:
             best_val_loss = val_metrics["val_loss"]
             torch.save(
                 {
@@ -279,6 +284,25 @@ def train(args):
                 best_checkpoint_path,
             )
             print(f"  --> Saved new best checkpoint to {best_checkpoint_path}")
+
+        # Log metrics to Excel sheet for report
+        if append_epoch_record is not None:
+            curr_lr = optimizer.param_groups[0]["lr"]
+            notes = "New Best Val Loss" if is_best else ""
+            excel_file = os.path.join(os.path.dirname(__file__), "task1_training_tracker.xlsx")
+            try:
+                append_epoch_record(
+                    epoch=epoch,
+                    lr=curr_lr,
+                    train_metrics=train_metrics,
+                    val_metrics=val_metrics,
+                    breakdown=breakdown,
+                    is_best=is_best,
+                    notes=notes,
+                    excel_path=excel_file,
+                )
+            except Exception as e:
+                print(f"  Warning: Failed to log epoch to Excel: {e}")
 
         # E. Save Visual Inspection Image Every few Epochs
         if epoch % args.sample_interval == 0 or epoch == args.epochs:
