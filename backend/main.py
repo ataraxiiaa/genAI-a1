@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from PIL import Image
 
 from corruptions import corrupt_image, TEST_SEVERITY_CONFIGS
-from onnx_engine import UniversalRestorationEngine
+from onnx_engine import UniversalRestorationEngine, HardRoutingEngine
 
 app = FastAPI(
     title="Generative AI Multi-Task Restoration & Synthesis API",
@@ -38,11 +38,17 @@ app.add_middleware(
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
 
+POSSIBLE_CHECKPOINT_DIRS = [
+    os.path.join(WORKSPACE_ROOT, "checkpoints"),
+    os.path.join(CURRENT_DIR, "checkpoints"),
+    os.path.join(WORKSPACE_ROOT, "universal-restoration", "checkpoints"),
+    os.path.join(CURRENT_DIR, "universal-restoration", "checkpoints"),
+    os.path.join(WORKSPACE_ROOT, "specialist-autoencoders", "checkpoints"),
+    os.path.join(CURRENT_DIR, "specialist-autoencoders", "checkpoints"),
+]
+
 POSSIBLE_ONNX_PATHS = [
-    os.path.join(WORKSPACE_ROOT, "checkpoints", "universal_ae.onnx"),
-    os.path.join(CURRENT_DIR, "checkpoints", "universal_ae.onnx"),
-    os.path.join(WORKSPACE_ROOT, "universal-restoration", "checkpoints", "universal_ae.onnx"),
-    os.path.join(CURRENT_DIR, "universal-restoration", "checkpoints", "universal_ae.onnx"),
+    os.path.join(cdir, "universal_ae.onnx") for cdir in POSSIBLE_CHECKPOINT_DIRS
 ]
 ONNX_TASK1_PATH = next((p for p in POSSIBLE_ONNX_PATHS if os.path.exists(p)), POSSIBLE_ONNX_PATHS[0])
 
@@ -66,6 +72,17 @@ if os.path.exists(ONNX_TASK1_PATH):
 else:
     print(f"Warning: Task 1 ONNX model not found at candidate paths: {POSSIBLE_ONNX_PATHS}")
 
+# Initialize Task 2 Engine (Hard-Routing Engine)
+task2_engine: Optional[HardRoutingEngine] = None
+try:
+    task2_engine = HardRoutingEngine(POSSIBLE_CHECKPOINT_DIRS)
+    if task2_engine.is_ready():
+        print("Loaded Task 2 Hard-Routing ONNX Engine (Classifier + 3 Specialists)")
+    else:
+        print("Notice: Task 2 Hard-Routing engine initialized in partial/fallback mode.")
+except Exception as e:
+    print(f"Warning: Failed to initialize Task 2 engine: {e}")
+
 
 # ==============================================================================
 # General & Helper Endpoints
@@ -78,12 +95,14 @@ def health_check():
         "status": "healthy",
         "tasks": {
             "task_1_universal": task1_engine is not None,
-            "task_2_hard_routing": False,
+            "task_2_hard_routing": task2_engine is not None and task2_engine.is_ready(),
             "task_3_soft_mixture": False,
             "task_4_face_to_sketch": False,
         },
         "onnx_model_loaded": task1_engine is not None,
+        "specialists_loaded": task2_engine is not None and task2_engine.is_ready(),
     }
+
 
 
 @app.get("/api/sample-images")
@@ -174,34 +193,75 @@ async def universal_restoration(
 
 
 # ==============================================================================
-# Task 2: Hard-Routing Endpoint (Placeholder for Task 2 Models)
+# Task 2: Hard-Routing Endpoint (Live ONNX Classifier + Specialists)
 # ==============================================================================
 
 @app.post("/api/hard-routing")
 async def hard_routing_restoration(
     file: Optional[UploadFile] = File(None),
     sample_name: Optional[str] = Form(None),
+    corruption: str = Form("none"),
+    severity: str = Form("medium"),
     mode: str = Form("predicted"),  # 'oracle' or 'predicted'
+    oracle_label: Optional[int] = Form(None),
 ):
     """
     Task 2: Hard-Routed Restoration using Classifier + Specialist Autoencoders.
-    Returns 4 classifier probabilities, selected expert, and restored image.
+    Dispatches input image based on corruption prediction (or oracle ground truth),
+    and returns 4 classifier probabilities, selected expert, restored image, and latency.
     """
-    # Active placeholder until Task 2 models are trained
-    return {
-        "status": "Task 2 training in progress",
-        "mode": mode,
-        "probabilities": {
-            "clean": 0.05,
-            "salt_and_pepper": 0.88,
-            "gaussian_blur": 0.04,
-            "rectangular_occlusion": 0.03,
-        },
-        "predicted_corruption": "salt_and_pepper",
-        "selected_expert": "Salt-and-Pepper Specialist Autoencoder",
-        "latency_ms": 14.2,
-        "message": "Task 2 classifier and specialists will be plugged in once trained.",
-    }
+    if task2_engine is None or not task2_engine.is_ready():
+        raise HTTPException(
+            status_code=503,
+            detail="Task 2 Hard-Routing engine is not fully loaded. Verify that specialist ONNX models exist.",
+        )
+
+    # 1. Load clean ground-truth image
+    pil_clean = None
+    if file and file.filename:
+        contents = await file.read()
+        pil_clean = Image.open(io.BytesIO(contents)).convert("RGB")
+    elif sample_name and IMAGES_DIR:
+        file_path = os.path.join(IMAGES_DIR, sample_name)
+        if os.path.exists(file_path):
+            pil_clean = Image.open(file_path).convert("RGB")
+
+    if pil_clean is None:
+        raise HTTPException(status_code=400, detail="Either an uploaded image file or a valid sample_name must be provided.")
+
+    # 2. Apply requested corruption if any
+    if corruption == "none":
+        pil_corrupted = pil_clean
+        corrupted_meta = {"type": "clean", "severity": "none"}
+        ground_truth_for_error_map = None
+    else:
+        pil_corrupted, corrupted_meta = corrupt_image(pil_clean, corruption, severity)
+        ground_truth_for_error_map = pil_clean.resize((128, 128), Image.Resampling.BILINEAR)
+
+    # Infer oracle label if mode is oracle and label not explicitly provided
+    if mode == "oracle" and oracle_label is None:
+        c_norm = corruption.lower()
+        if "salt" in c_norm or "noise" in c_norm:
+            oracle_label = 1
+        elif "blur" in c_norm:
+            oracle_label = 2
+        elif "occlusion" in c_norm or "box" in c_norm or "rect" in c_norm:
+            oracle_label = 3
+        else:
+            oracle_label = 0
+
+    # 3. Run Hard-Routing Engine
+    result = task2_engine.run_hard_routing(
+        corrupted_pil=pil_corrupted,
+        clean_pil=ground_truth_for_error_map,
+        mode=mode,
+        oracle_label=oracle_label,
+    )
+
+    result["corruption_applied"] = corrupted_meta
+    result["model_used"] = f"Task 2 Hard-Routing ({result['selected_expert']})"
+    return result
+
 
 
 # ==============================================================================
