@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from PIL import Image
 
 from corruptions import corrupt_image, TEST_SEVERITY_CONFIGS
-from onnx_engine import UniversalRestorationEngine, HardRoutingEngine
+from onnx_engine import UniversalRestorationEngine, HardRoutingEngine, SoftMoEEngine, FaceToSketchEngine
 
 app = FastAPI(
     title="Generative AI Multi-Task Restoration & Synthesis API",
@@ -45,6 +45,8 @@ POSSIBLE_CHECKPOINT_DIRS = [
     os.path.join(CURRENT_DIR, "universal-restoration", "checkpoints"),
     os.path.join(WORKSPACE_ROOT, "specialist-autoencoders", "checkpoints"),
     os.path.join(CURRENT_DIR, "specialist-autoencoders", "checkpoints"),
+    os.path.join(WORKSPACE_ROOT, "face-to-sketch Generator", "checkpoints"),
+    os.path.join(CURRENT_DIR, "face-to-sketch Generator", "checkpoints"),
 ]
 
 POSSIBLE_ONNX_PATHS = [
@@ -52,7 +54,19 @@ POSSIBLE_ONNX_PATHS = [
 ]
 ONNX_TASK1_PATH = next((p for p in POSSIBLE_ONNX_PATHS if os.path.exists(p)), POSSIBLE_ONNX_PATHS[0])
 
-# Find dataset images directory
+# Task 3 Soft MoE ONNX Path
+POSSIBLE_TASK3_PATHS = [
+    os.path.join(cdir, "soft_moe.onnx") for cdir in POSSIBLE_CHECKPOINT_DIRS
+]
+ONNX_TASK3_PATH = next((p for p in POSSIBLE_TASK3_PATHS if os.path.exists(p)), POSSIBLE_TASK3_PATHS[0])
+
+# Task 4 cGAN Generator ONNX Path
+POSSIBLE_TASK4_PATHS = [
+    os.path.join(cdir, "cgan_generator.onnx") for cdir in POSSIBLE_CHECKPOINT_DIRS
+]
+ONNX_TASK4_PATH = next((p for p in POSSIBLE_TASK4_PATHS if os.path.exists(p)), POSSIBLE_TASK4_PATHS[0])
+
+# Find pet images dataset directory (Tasks 1, 2, 3)
 POSSIBLE_IMG_DIRS = [
     os.path.join(WORKSPACE_ROOT, "images"),
     os.path.join(CURRENT_DIR, "images"),
@@ -60,6 +74,13 @@ POSSIBLE_IMG_DIRS = [
     os.path.join(CURRENT_DIR, "Images"),
 ]
 IMAGES_DIR = next((d for d in POSSIBLE_IMG_DIRS if os.path.exists(d)), None)
+
+# Find FS2K dataset directory (Task 4)
+POSSIBLE_FS2K_DIRS = [
+    os.path.join(WORKSPACE_ROOT, "FS2K"),
+    os.path.join(CURRENT_DIR, "FS2K"),
+]
+FS2K_DIR = next((d for d in POSSIBLE_FS2K_DIRS if os.path.exists(d)), None)
 
 # Initialize Task 1 Engine
 task1_engine: Optional[UniversalRestorationEngine] = None
@@ -83,6 +104,28 @@ try:
 except Exception as e:
     print(f"Warning: Failed to initialize Task 2 engine: {e}")
 
+# Initialize Task 3 Engine (Soft MoE Engine)
+task3_engine: Optional[SoftMoEEngine] = None
+if os.path.exists(ONNX_TASK3_PATH):
+    try:
+        task3_engine = SoftMoEEngine(ONNX_TASK3_PATH)
+        print(f"Loaded Task 3 Soft MoE ONNX model from: {ONNX_TASK3_PATH}")
+    except Exception as e:
+        print(f"Warning: Failed to load ONNX Task 3: {e}")
+else:
+    print(f"Notice: Task 3 ONNX model not found at candidate paths: {POSSIBLE_TASK3_PATHS}")
+
+# Initialize Task 4 Engine (Face-to-Sketch cGAN Generator Engine)
+task4_engine: Optional[FaceToSketchEngine] = None
+if os.path.exists(ONNX_TASK4_PATH):
+    try:
+        task4_engine = FaceToSketchEngine(ONNX_TASK4_PATH)
+        print(f"Loaded Task 4 cGAN ONNX model from: {ONNX_TASK4_PATH}")
+    except Exception as e:
+        print(f"Warning: Failed to load ONNX Task 4: {e}")
+else:
+    print(f"Notice: Task 4 ONNX model not found at candidate paths: {POSSIBLE_TASK4_PATHS}")
+
 
 # ==============================================================================
 # General & Helper Endpoints
@@ -90,17 +133,19 @@ except Exception as e:
 
 @app.get("/health")
 def health_check():
-    """Health check endpoint required by assignment."""
+    """Health check endpoint providing status of all 4 Generative AI tasks."""
     return {
         "status": "healthy",
         "tasks": {
             "task_1_universal": task1_engine is not None,
             "task_2_hard_routing": task2_engine is not None and task2_engine.is_ready(),
-            "task_3_soft_mixture": False,
-            "task_4_face_to_sketch": False,
+            "task_3_soft_mixture": task3_engine is not None,
+            "task_4_face_to_sketch": task4_engine is not None,
         },
         "onnx_model_loaded": task1_engine is not None,
         "specialists_loaded": task2_engine is not None and task2_engine.is_ready(),
+        "soft_moe_loaded": task3_engine is not None,
+        "cgan_loaded": task4_engine is not None,
     }
 
 
@@ -138,6 +183,55 @@ def get_sample_image_data(filename: str):
         b64 = f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}"
 
     return {"filename": filename, "image_base64": b64}
+
+
+@app.get("/api/face-samples")
+def get_face_samples():
+    """Returns a curated list of diverse face portraits from the FS2K dataset for Task 4."""
+    if not FS2K_DIR or not os.path.exists(FS2K_DIR):
+        return {"samples": []}
+
+    samples = []
+    curated = [
+        ("photo1", "image0001.jpg", "Female Portrait 1"),
+        ("photo1", "image0007.jpg", "Male Portrait 1"),
+        ("photo1", "image0014.jpg", "Female Portrait 2"),
+        ("photo1", "image0020.jpg", "Male Portrait 2"),
+        ("photo1", "image0038.jpg", "Female Portrait 3"),
+        ("photo1", "image0050.jpg", "Male Portrait 3"),
+        ("photo1", "image0079.jpg", "Female Portrait 4"),
+        ("photo1", "image0104.jpg", "Male Portrait 4"),
+        ("photo2", "image0003.jpg", "Stylized Portrait 1"),
+        ("photo2", "image0015.jpg", "Stylized Portrait 2"),
+        ("photo3", "image0008.jpg", "Character Portrait 1"),
+        ("photo3", "image0025.jpg", "Character Portrait 2"),
+    ]
+    for sub, fname, label in curated:
+        p = os.path.join(FS2K_DIR, "photo", sub, fname)
+        if os.path.exists(p):
+            samples.append({
+                "subfolder": sub,
+                "filename": fname,
+                "label": label,
+            })
+    return {"samples": samples}
+
+
+@app.get("/api/face-samples/{subfolder}/{filename}")
+def get_face_sample_data(subfolder: str, filename: str):
+    """Returns sample face photo as base64 data URI."""
+    if not FS2K_DIR:
+        raise HTTPException(status_code=404, detail="FS2K directory not found")
+    p = os.path.join(FS2K_DIR, "photo", subfolder, filename)
+    if not os.path.exists(p):
+        raise HTTPException(status_code=404, detail="Face sample not found")
+
+    pil_img = Image.open(p).convert("RGB").resize((128, 128), Image.Resampling.BILINEAR)
+    buf = io.BytesIO()
+    pil_img.save(buf, format="JPEG", quality=92)
+    import base64
+    b64 = f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}"
+    return {"subfolder": subfolder, "filename": filename, "image_base64": b64}
 
 
 # ==============================================================================
@@ -265,55 +359,116 @@ async def hard_routing_restoration(
 
 
 # ==============================================================================
-# Task 3: Soft Mixture-of-Experts Endpoint (Placeholder for Task 3 Models)
+# Task 3: Soft Mixture-of-Experts Endpoint (Live ONNX)
 # ==============================================================================
 
 @app.post("/api/soft-mixture")
 async def soft_mixture_restoration(
     file: Optional[UploadFile] = File(None),
     sample_name: Optional[str] = Form(None),
+    corruption: str = Form("none"),
+    severity: str = Form("medium"),
     temperature: float = Form(1.0),
 ):
     """
     Task 3: Differentiable Soft Mixture-of-Experts.
-    Returns 4 continuous gating weights [w_clean, w_salt, w_blur, w_occlusion] and blended output.
+    Returns continuous gating weights [w_clean, w_salt, w_blur, w_occlusion] and blended output.
     """
-    # Active placeholder until Task 3 is trained
-    return {
-        "status": "Task 3 training in progress",
-        "temperature": temperature,
-        "routing_weights": {
-            "clean_identity": 0.08,
-            "salt_and_pepper_expert": 0.72,
-            "gaussian_blur_expert": 0.12,
-            "occlusion_expert": 0.08,
-        },
-        "dominant_expert": "salt_and_pepper_expert",
-        "latency_ms": 18.5,
-        "message": "Task 3 Soft MoE gating network will be plugged in once trained.",
-    }
+    if task3_engine is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Task 3 Soft MoE model is not loaded. Verify checkpoints/soft_moe.onnx exists.",
+        )
+
+    pil_clean = None
+    if file and hasattr(file, "filename") and file.filename:
+        content = await file.read()
+        pil_clean = Image.open(io.BytesIO(content)).convert("RGB")
+    elif sample_name and IMAGES_DIR:
+        file_path = os.path.join(IMAGES_DIR, sample_name)
+        if os.path.exists(file_path):
+            pil_clean = Image.open(file_path).convert("RGB")
+
+    if pil_clean is None:
+        raise HTTPException(status_code=400, detail="Must provide uploaded image or valid sample_name.")
+
+    if corruption == "none":
+        pil_corrupted = pil_clean
+        ground_truth = None
+        corrupted_meta = {"type": "clean", "severity": "none"}
+    else:
+        pil_corrupted, corrupted_meta = corrupt_image(pil_clean, corruption, severity)
+        ground_truth = pil_clean.resize((128, 128), Image.Resampling.BILINEAR)
+
+    result = task3_engine.run_restoration(pil_corrupted, clean_pil=ground_truth)
+    result["temperature"] = temperature
+    result["corruption_applied"] = corrupted_meta
+    result["model_used"] = "Task 3 Joint Soft Mixture-of-Experts (ONNX)"
+    return result
 
 
 # ==============================================================================
-# Task 4: Face-to-Sketch Endpoint (Placeholder for Task 4 GAN)
+# Task 4: Face-to-Sketch Endpoint (Live Pix2Pix cGAN ONNX)
 # ==============================================================================
 
 @app.post("/api/face-to-sketch")
 async def face_to_sketch_generation(
     file: Optional[UploadFile] = File(None),
+    sample_sub: Optional[str] = Form(None),
+    sample_name: Optional[str] = Form(None),
+    webcam_image: Optional[str] = Form(None),
     style: str = Form("Style 1"),
 ):
     """
-    Task 4: Style-Conditioned Face-to-Sketch Conditional GAN.
-    Accepts facial photograph, generates corresponding sketch in Style 1, 2, or 3.
+    Task 4: Style-Conditioned Face-to-Sketch Conditional GAN (Pix2Pix).
+    Accepts facial photograph (upload, dataset sample, or webcam snapshot),
+    generates corresponding sketch conditioned on Style 1, Style 2, or Style 3.
     """
-    # Active placeholder until Task 4 cGAN is trained
-    return {
-        "status": "Task 4 training in progress",
-        "selected_style": style,
-        "supported_styles": ["Style 1", "Style 2", "Style 3"],
-        "message": "Task 4 FS2K Conditional GAN generator will be plugged in once trained.",
-    }
+    if task4_engine is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Task 4 cGAN model is not loaded. Verify checkpoints/cgan_generator.onnx exists.",
+        )
+
+    # 1. Parse Input Photo
+    pil_photo = None
+    import base64
+    if file and hasattr(file, "filename") and file.filename:
+        content = await file.read()
+        pil_photo = Image.open(io.BytesIO(content)).convert("RGB")
+    elif webcam_image and isinstance(webcam_image, str) and webcam_image.startswith("data:image"):
+        try:
+            _, b64_data = webcam_image.split(",", 1)
+            img_bytes = base64.b64decode(b64_data)
+            pil_photo = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid webcam image data: {e}")
+    elif sample_name and FS2K_DIR:
+        sub = sample_sub if sample_sub else "photo1"
+        sample_path = os.path.join(FS2K_DIR, "photo", sub, sample_name)
+        if not os.path.exists(sample_path):
+            sample_path = os.path.join(FS2K_DIR, "photo", "photo1", sample_name)
+        if os.path.exists(sample_path):
+            pil_photo = Image.open(sample_path).convert("RGB")
+
+    if pil_photo is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide an uploaded photo, a webcam capture, or select a sample portrait.",
+        )
+
+    # 2. Parse Style Index
+    s_raw = str(style).lower().strip()
+    if "2" in s_raw or "contour" in s_raw:
+        style_idx = 1
+    elif "3" in s_raw or "comic" in s_raw or "graphic" in s_raw:
+        style_idx = 2
+    else:
+        style_idx = 0
+
+    # 3. Run cGAN Generation
+    result = task4_engine.run_generation(pil_photo, style_idx=style_idx)
+    return result
 
 
 if __name__ == "__main__":

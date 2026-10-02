@@ -244,3 +244,178 @@ class HardRoutingEngine:
 
         return result
 
+
+class SoftMoEEngine:
+    """
+    ONNX Runtime Engine for Task 3: Differentiable Soft Mixture-of-Experts.
+    Restores degraded images using continuous soft routing across 4 branches.
+    """
+    BRANCH_NAMES = ["Clean Bypass", "Noise Specialist", "Blur Specialist", "Occlusion Specialist"]
+    BRANCH_KEYS = ["clean_identity", "salt_and_pepper_expert", "gaussian_blur_expert", "occlusion_expert"]
+
+    def __init__(self, onnx_model_path: str):
+        self.model_path = onnx_model_path
+        providers = ["CPUExecutionProvider"]
+        if "CUDAExecutionProvider" in ort.get_available_providers():
+            providers.insert(0, "CUDAExecutionProvider")
+        self.session = ort.InferenceSession(onnx_model_path, providers=providers)
+        self.providers = providers
+        print(f"SoftMoEEngine: Initialized Soft MoE from {onnx_model_path} with {providers[0]}")
+
+    def preprocess(self, pil_img: Image.Image) -> np.ndarray:
+        resized = pil_img.convert("RGB").resize((128, 128), Image.Resampling.BILINEAR)
+        arr = np.array(resized, dtype=np.float32) / 255.0
+        tensor = np.transpose(arr, (2, 0, 1))
+        return np.expand_dims(tensor, axis=0)
+
+    def postprocess(self, tensor: np.ndarray) -> Image.Image:
+        arr = tensor[0]
+        arr = np.transpose(arr, (1, 2, 0))
+        arr = np.clip(arr * 255.0, 0, 255).astype(np.uint8)
+        return Image.fromarray(arr)
+
+    def compute_error_map(self, clean_pil: Image.Image, restored_pil: Image.Image) -> Image.Image:
+        c = np.array(clean_pil.convert("RGB").resize((128, 128)), dtype=np.float32) / 255.0
+        r = np.array(restored_pil.convert("RGB").resize((128, 128)), dtype=np.float32) / 255.0
+        diff = np.mean(np.abs(r - c), axis=-1)
+        norm_diff = np.clip(diff / 0.35, 0.0, 1.0)
+        heatmap = cm.magma(norm_diff)[:, :, :3]
+        return Image.fromarray((heatmap * 255.0).astype(np.uint8))
+
+    def to_base64(self, pil_img: Image.Image) -> str:
+        buf = io.BytesIO()
+        pil_img.save(buf, format="JPEG", quality=92)
+        encoded = base64.b64encode(buf.getvalue()).decode("utf-8")
+        return f"data:image/jpeg;base64,{encoded}"
+
+    def run_restoration(self, corrupted_pil: Image.Image, clean_pil: Image.Image = None) -> dict:
+        inp_tensor = self.preprocess(corrupted_pil)
+        start_time = time.perf_counter()
+        outputs = self.session.run(None, {"corrupted_image": inp_tensor})
+        latency_ms = (time.perf_counter() - start_time) * 1000.0
+
+        restored_tensor = outputs[0]
+        routing_weights = outputs[1][0]  # shape (4,)
+
+        restored_pil = self.postprocess(restored_tensor)
+
+        weights_dict = {
+            self.BRANCH_KEYS[i]: round(float(routing_weights[i]), 4)
+            for i in range(4)
+        }
+        dominant_idx = int(np.argmax(routing_weights))
+
+        result = {
+            "latency_ms": round(latency_ms, 2),
+            "input_image": self.to_base64(corrupted_pil.convert("RGB").resize((128, 128))),
+            "restored_image": self.to_base64(restored_pil),
+            "routing_weights": weights_dict,
+            "dominant_expert": self.BRANCH_NAMES[dominant_idx],
+            "dominant_expert_key": self.BRANCH_KEYS[dominant_idx],
+            "error_map_image": None,
+            "metrics": {},
+        }
+
+        if clean_pil is not None:
+            clean_128 = clean_pil.convert("RGB").resize((128, 128))
+            result["clean_image"] = self.to_base64(clean_128)
+            error_map_pil = self.compute_error_map(clean_128, restored_pil)
+            result["error_map_image"] = self.to_base64(error_map_pil)
+
+            c = np.array(clean_128, dtype=np.float32) / 255.0
+            r = np.array(restored_pil, dtype=np.float32) / 255.0
+            l1 = float(np.mean(np.abs(r - c)))
+            mse = float(np.mean((r - c) ** 2))
+            psnr = round(10 * np.log10(1.0 / max(1e-10, mse)), 2)
+            result["metrics"] = {"l1_error": round(l1, 4), "psnr_db": psnr}
+
+        return result
+
+
+class FaceToSketchEngine:
+    """
+    ONNX Runtime Engine for Task 4: Style-Conditioned Face-to-Sketch Generator (Pix2Pix cGAN).
+    Accepts facial photograph, generates high-fidelity sketch conditioned on Style 1, 2, or 3.
+    """
+    STYLE_CONFIGS = {
+        0: {
+            "name": "Style 1: Shaded Pencil",
+            "short_name": "Style 1",
+            "desc": "Gradated pencil shading, natural graphite textures, soft dimensional depth",
+            "badge": "Shaded Pencil",
+        },
+        1: {
+            "name": "Style 2: Clean Contour",
+            "short_name": "Style 2",
+            "desc": "Minimalist clean outlines, crisp structural contours, delicate line art",
+            "badge": "Clean Contour",
+        },
+        2: {
+            "name": "Style 3: Graphic Comic",
+            "short_name": "Style 3",
+            "desc": "High-contrast ink outlines, stylized expressive features, comic illustration",
+            "badge": "Graphic Comic",
+        },
+    }
+
+    def __init__(self, onnx_model_path: str):
+        self.model_path = onnx_model_path
+        providers = ["CPUExecutionProvider"]
+        if "CUDAExecutionProvider" in ort.get_available_providers():
+            providers.insert(0, "CUDAExecutionProvider")
+        self.session = ort.InferenceSession(onnx_model_path, providers=providers)
+        self.providers = providers
+        print(f"FaceToSketchEngine: Initialized cGAN generator from {onnx_model_path} with {providers[0]}")
+
+    def preprocess(self, pil_img: Image.Image) -> np.ndarray:
+        """Resizes to 128x128 RGB and normalizes to [-1.0, 1.0]."""
+        resized = pil_img.convert("RGB").resize((128, 128), Image.Resampling.BILINEAR)
+        arr = np.array(resized, dtype=np.float32) / 127.5 - 1.0  # [-1.0, 1.0]
+        tensor = np.transpose(arr, (2, 0, 1))                  # (3, 128, 128)
+        return np.expand_dims(tensor, axis=0)                  # (1, 3, 128, 128)
+
+    def postprocess(self, tensor: np.ndarray) -> Image.Image:
+        """Denormalizes [-1.0, 1.0] to [0, 255] uint8 PIL Image."""
+        arr = tensor[0]                                        # (3, 128, 128)
+        arr = np.transpose(arr, (1, 2, 0))                     # (128, 128, 3)
+        denorm = ((arr * 0.5 + 0.5) * 255.0).clip(0, 255).astype(np.uint8)
+        return Image.fromarray(denorm)
+
+    def to_base64(self, pil_img: Image.Image) -> str:
+        buf = io.BytesIO()
+        pil_img.save(buf, format="JPEG", quality=95)
+        encoded = base64.b64encode(buf.getvalue()).decode("utf-8")
+        return f"data:image/jpeg;base64,{encoded}"
+
+    def run_generation(self, photo_pil: Image.Image, style_idx: int = 0) -> dict:
+        """
+        Runs style-conditioned sketch generation on the input photograph.
+        """
+        # Ensure style_idx in {0, 1, 2}
+        style_idx = max(0, min(2, int(style_idx)))
+        inp_photo = self.preprocess(photo_pil)
+        inp_style = np.array([style_idx], dtype=np.int64)
+
+        start_time = time.perf_counter()
+        sketch_tensor = self.session.run(None, {"photo": inp_photo, "style_idx": inp_style})[0]
+        latency_ms = (time.perf_counter() - start_time) * 1000.0
+
+        sketch_pil = self.postprocess(sketch_tensor)
+        photo_128 = photo_pil.convert("RGB").resize((128, 128), Image.Resampling.BILINEAR)
+
+        cfg = self.STYLE_CONFIGS.get(style_idx, self.STYLE_CONFIGS[0])
+
+        return {
+            "style_idx": style_idx,
+            "style_name": cfg["name"],
+            "style_short": cfg["short_name"],
+            "style_description": cfg["desc"],
+            "style_badge": cfg["badge"],
+            "latency_ms": round(latency_ms, 2),
+            "input_photo": self.to_base64(photo_128),
+            "sketch_image": self.to_base64(sketch_pil),
+            "model_engine": "ONNX Runtime (Pix2Pix U-Net cGAN)",
+            "resolution": "128x128",
+        }
+
+

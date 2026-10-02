@@ -26,6 +26,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torchvision.transforms.functional as TF
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torchmetrics.functional.image import peak_signal_noise_ratio, structural_similarity_index_measure
@@ -299,7 +301,8 @@ def save_visual_samples(
     plt.tight_layout()
     os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
     plt.savefig(save_path, dpi=150)
-    plt.close()
+    plt.close(fig)
+    plt.close("all")
 
 
 # ==============================================================================
