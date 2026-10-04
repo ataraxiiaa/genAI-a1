@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "tested_at": "2026-10-04T13:12:51.4896602+05:00",
+  "source": {
+    "method": "temporary committed snapshot of the complete working tree, followed by a fresh local clone",
+    "commit": "f93861e5af057bcbc6cf886ba81a64189ddcac1b",
+    "git_status_before_test": "clean",
+    "git_lfs_pull": "passed",
+    "dataset_setup": "images, annotations, and FS2K copied to the README-documented paths; all remain Git-ignored"
+  },
+  "environment": {
+    "os": "Windows with Docker Desktop Linux containers",
+    "docker_client": "29.6.1",
+    "docker_server": "29.6.1",
+    "docker_compose": "5.2.0",
+    "platform": "linux/amd64"
+  },
+  "command": "docker compose up --build -d",
+  "result": "passed",
+  "images": {
+    "backend": "sha256:b2a6bfb22ce3428f7fbe6b94cfc9f3f4e2742c04ad6fe109d8b3e5b1291b4040",
+    "frontend": "sha256:90fd2f11f00da675222126bbb1ec8d464a522f55e28f9ebbbee128b41343beaf"
+  },
+  "checks": {
+    "frontend_http_200": true,
+    "backend_health_http_200": true,
+    "frontend_proxy_health_http_200": true,
+    "all_four_models_loaded": true,
+    "task_1_inference_http_200": true,
+    "task_2_inference_http_200": true,
+    "task_3_inference_http_200": true,
+    "task_4_inference_http_200": true,
+    "runtime_errors_in_logs": false
+  },
+  "smoke_inputs": {
+    "tasks_1_to_3_sample": "Ragdoll_139.jpg",
+    "task_1_condition": "salt_and_pepper/low",
+    "task_2_condition": "gaussian_blur/medium, predicted routing",
+    "task_3_condition": "rectangular_occlusion/high, temperature 1.0",
+    "task_4_sample": "photo1/image0001.jpg, Style 1"
+  },
+  "observed_inference": {
+    "task_1_latency_ms": 14.9,
+    "task_2_latency_ms": 12.75,
+    "task_2_selected_expert": "Blur Specialist Autoencoder (Gaussian Blur)",
+    "task_3_latency_ms": 26.31,
+    "task_3_dominant_expert": "Occlusion Specialist",
+    "task_4_latency_ms": 28.93
+  },
+  "defect_fixed_during_test": {
+    "symptom": "A clean-clone stack could not start when stopped containers from another clone already owned the globally fixed container names.",
+    "fix": "Removed service-level container_name values so Docker Compose scopes names to its project.",
+    "existing_containers_modified": false
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "best_trial_number": 13,
+  "best_val_ssim": 0.8510123252868652,
+  "best_params": {
+    "joint_lr": 6.712466467062146e-05,
+    "temperature": 1.967089024693537,
+    "lambda_ce": 0.08392029732528074,
+    "lambda_bal": 0.01141228107992597,
+    "lambda_rec": 0.7022461491454756
+  }
+}

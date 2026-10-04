@@ -1,0 +1,13 @@
+{
+  "best_trial_number": 9,
+  "best_val_ssim": 0.499737965891946,
+  "best_params": {
+    "g_lr": 0.00027978038144463253,
+    "d_lr": 5.153456180366079e-05,
+    "batch_size": 16,
+    "base_channels": 64,
+    "dropout": 0.0,
+    "embed_dim": 32,
+    "lambda_l1": 150.0
+  }
+}

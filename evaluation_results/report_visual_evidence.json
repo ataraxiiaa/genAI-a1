@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "selection": {
+    "representative_tasks_1_3": "first sample in official medium-noise manifest",
+    "representative_task_4": "held-out sample closest to saved overall Task 4 SSIM",
+    "task1_failure": "lowest SSIM among first 384 official high-occlusion samples",
+    "task2_failure": "largest predicted-vs-oracle SSIM loss among routing errors in first 384 samples of each scanned blur/occlusion manifest",
+    "task3_failure": "lowest SSIM among first 384 official high-occlusion samples, excluding the Task 1 image",
+    "task4_failure": "lowest SSIM over all 1,046 official FS2K test pairs"
+  },
+  "representative_cases": [
+    {
+      "title": "Task 1 \u2014 Universal AE",
+      "image_name": "Abyssinian_201",
+      "condition": "noise medium",
+      "ssim": 0.7555344700813293
+    },
+    {
+      "title": "Task 2 \u2014 Predicted hard route",
+      "image_name": "Abyssinian_201",
+      "condition": "noise medium",
+      "ssim": 0.8124801516532898,
+      "predicted_route": "noise"
+    },
+    {
+      "title": "Task 3 \u2014 Soft MoE",
+      "image_name": "Abyssinian_201",
+      "condition": "noise medium",
+      "ssim": 0.8173125386238098,
+      "routing_weights": [
+        8.431701280642301e-05,
+        0.9996254444122314,
+        8.168474596459419e-05,
+        0.0002085139276459813
+      ]
+    },
+    {
+      "title": "Task 4 \u2014 Face-to-sketch cGAN",
+      "image_name": "photo1/image0985",
+      "condition": "FS2K style 2",
+      "ssim": 0.5116462111473083,
+      "style": 2
+    }
+  ],
+  "failure_cases": [
+    {
+      "title": "Task 1 \u2014 High occlusion",
+      "image_name": "basset_hound_76",
+      "condition": "rectangular occlusion high",
+      "ssim": 0.32776758074760437
+    },
+    {
+      "title": "Task 2 \u2014 Routing error",
+      "image_name": "Abyssinian_60",
+      "condition": "clean",
+      "ssim": 0.9067127108573914,
+      "oracle_ssim": 1.0,
+      "ssim_loss_vs_oracle": 0.09328728914260864,
+      "true_route": "clean",
+      "predicted_route": "blur",
+      "predicted_confidence": 0.4969724118709564
+    },
+    {
+      "title": "Task 3 \u2014 High occlusion",
+      "image_name": "american_bulldog_68",
+      "condition": "rectangular occlusion high",
+      "ssim": 0.4026202857494354
+    },
+    {
+      "title": "Task 4 \u2014 Face-to-sketch cGAN",
+      "image_name": "photo1/image1685",
+      "condition": "FS2K style 1",
+      "ssim": 0.21955756843090057,
+      "style": 1
+    }
+  ]
+}

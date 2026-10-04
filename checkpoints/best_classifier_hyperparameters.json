@@ -1,0 +1,17 @@
+{
+  "best_trial_number": 2,
+  "best_macro_f1": 0.9636529959662897,
+  "user_attrs": {
+    "macro_f1": 0.9636529959662897,
+    "macro_precision": 0.9658844175529874,
+    "macro_recall": 0.9633152173913043,
+    "val_acc": 0.9633152173913043
+  },
+  "best_params": {
+    "lr": 0.0006216700537794097,
+    "batch_size": 16,
+    "base_channels": 16,
+    "dropout": 0.05,
+    "weight_decay": 0.0002447289951605322
+  }
+}

@@ -190,29 +190,62 @@ def save_test_visual_grid(
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate cGAN Generator on Held-Out FS2K Test Set")
-    parser.add_argument("--checkpoint", type=str, default="checkpoints/best_cgan_generator.pt", help="Path to checkpoint")
-    parser.add_argument("--config", type=str, default="checkpoints/best_cgan_hyperparameters.json", help="Path to hyperparams JSON")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=os.path.join(WORKSPACE_ROOT, "checkpoints", "best_cgan_generator.pt"),
+        help="Path to checkpoint",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=os.path.join(WORKSPACE_ROOT, "checkpoints", "best_cgan_hyperparameters.json"),
+        help="Path to hyperparams JSON",
+    )
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument("--image_size", type=int, default=128, help="Spatial resolution")
     parser.add_argument("--num_workers", type=int, default=2, help="DataLoader workers")
     parser.add_argument("--excel_path", type=str, default=EXCEL_PATH, help="Path to Excel tracker")
-    parser.add_argument("--save_grid_path", type=str, default="face-to-sketch Generator/visual_samples/test_qualitative_grid.png")
+    parser.add_argument("--skip_excel", action="store_true", help="Do not append results to the Excel tracker")
+    parser.add_argument(
+        "--save_grid_path",
+        type=str,
+        default=os.path.join(CURRENT_DIR, "visual_samples", "test_qualitative_grid.png"),
+    )
+    parser.add_argument(
+        "--results_json",
+        type=str,
+        default=os.path.join(WORKSPACE_ROOT, "evaluation_results", "task4_test_metrics.json"),
+        help="Machine-readable output path for held-out test metrics",
+    )
     parser.add_argument("--no_cuda", action="store_true", help="Disable CUDA acceleration")
 
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
 
-    base_channels = 64
-    embed_dim = 16
-    dropout = 0.0
+    if not os.path.exists(args.checkpoint):
+        raise FileNotFoundError(
+            f"Generator checkpoint not found: {os.path.abspath(args.checkpoint)}. "
+            "Refusing to evaluate random weights."
+        )
+
+    ckpt = torch.load(args.checkpoint, map_location=device)
+    checkpoint_cfg = ckpt.get("config", {}) if isinstance(ckpt, dict) else {}
+
+    base_channels = checkpoint_cfg.get("base_channels", 64)
+    embed_dim = checkpoint_cfg.get("embed_dim", 16)
+    dropout = checkpoint_cfg.get("dropout", 0.0)
 
     if os.path.exists(args.config):
         with open(args.config, "r", encoding="utf-8") as f:
             cfg = json.load(f)
             p = cfg.get("best_params", cfg)
-            base_channels = p.get("base_channels", base_channels)
-            embed_dim = p.get("embed_dim", embed_dim)
-            dropout = p.get("dropout", dropout)
+            # Checkpoint metadata is authoritative. The separate JSON remains
+            # a fallback for legacy state-dict-only checkpoints.
+            if not checkpoint_cfg:
+                base_channels = p.get("base_channels", base_channels)
+                embed_dim = p.get("embed_dim", embed_dim)
+                dropout = p.get("dropout", dropout)
 
     netG = UNetGenerator(
         in_channels=3,
@@ -223,13 +256,9 @@ def main():
         dropout=dropout,
     ).to(device)
 
-    if os.path.exists(args.checkpoint):
-        ckpt = torch.load(args.checkpoint, map_location=device)
-        state_dict = ckpt.get("generator_state_dict", ckpt)
-        netG.load_state_dict(state_dict)
-        print(f"Loaded generator checkpoint: {args.checkpoint}")
-    else:
-        print(f"Warning: Checkpoint '{args.checkpoint}' not found! Evaluating initialized model.")
+    state_dict = ckpt.get("generator_state_dict", ckpt)
+    netG.load_state_dict(state_dict)
+    print(f"Loaded generator checkpoint: {os.path.abspath(args.checkpoint)}")
 
     manifest_dir = os.path.join(WORKSPACE_ROOT, "manifests")
     _, _, test_loader = get_fs2k_dataloaders(
@@ -244,6 +273,21 @@ def main():
 
     overall, per_style, samples = evaluate_test_set(netG, test_loader, device)
 
+    os.makedirs(os.path.dirname(os.path.abspath(args.results_json)), exist_ok=True)
+    with open(args.results_json, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "checkpoint": os.path.relpath(os.path.abspath(args.checkpoint), WORKSPACE_ROOT),
+                "checkpoint_epoch": ckpt.get("epoch") if isinstance(ckpt, dict) else None,
+                "split": "FS2K official held-out test",
+                "overall": overall,
+                "per_style": per_style,
+            },
+            f,
+            indent=2,
+        )
+    print(f"Saved machine-readable test metrics to: {args.results_json}")
+
     print("\n" + "=" * 75)
     print("HELD-OUT TEST SET EVALUATION RESULTS (1,046 PAIRS)")
     print("=" * 75)
@@ -256,9 +300,10 @@ def main():
         print(f"  {s_name:25s} | SSIM: {res['ssim']:.4f} | PSNR: {res['psnr']:.2f} dB | L1: {res['l1']:.4f} ({res['count']} pairs)")
     print("=" * 75)
 
-    # Log to Excel tracker
-    append_style_eval("Held-out Test Set (Official 1,046 Pairs)", per_style, excel_path=args.excel_path)
-    print(f"Appended test set metrics to Excel tracker: {args.excel_path}")
+    # Log to Excel tracker unless a read-only/reproducibility run requested otherwise.
+    if not args.skip_excel:
+        append_style_eval("Held-out Test Set (Official 1,046 Pairs)", per_style, excel_path=args.excel_path)
+        print(f"Appended test set metrics to Excel tracker: {args.excel_path}")
 
     # Save visual comparison grid
     save_test_visual_grid(samples, save_path=args.save_grid_path)

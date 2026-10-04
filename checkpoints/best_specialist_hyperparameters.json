@@ -1,0 +1,16 @@
+{
+  "best_trial_number": 14,
+  "best_val_loss": 0.09613835649645847,
+  "user_attrs": {
+    "val_loss": 0.09613835649645847,
+    "val_psnr": 20.356449293053668,
+    "val_ssim": 0.6282728469890096
+  },
+  "best_params": {
+    "lr": 0.0002870469786479831,
+    "batch_size": 32,
+    "base_channels": 48,
+    "latent_dim": 256,
+    "alpha": 0.9
+  }
+}

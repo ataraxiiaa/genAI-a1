@@ -21,7 +21,7 @@ import sys
 import time
 import io
 import base64
-from typing import Dict, List, Tuple, Optional, Any, Union
+from typing import Dict, List, Tuple, Optional, Any, Union, Sequence
 
 import numpy as np
 import torch
@@ -100,12 +100,18 @@ class HardRouter(nn.Module):
         }
 
     def _load_specialist(self, sp_type: str, ckpt_path: Optional[str]) -> nn.Module:
-        model = get_specialist(sp_type).to(self.device)
         if ckpt_path and os.path.exists(ckpt_path):
             ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
+            cfg = ckpt.get("config", {})
+            model = get_specialist(
+                sp_type,
+                base_channels=cfg.get("base_channels", 64),
+                latent_dim=cfg.get("latent_dim", 256),
+            ).to(self.device)
             model.load_state_dict(ckpt["model_state_dict"])
             print(f"[HardRouter] Loaded {sp_type.upper()} Specialist from {ckpt_path}")
         else:
+            model = get_specialist(sp_type).to(self.device)
             print(f"[HardRouter] Initialized {sp_type.upper()} Specialist (untrained weights)")
         model.eval()
         return model
@@ -115,7 +121,7 @@ class HardRouter(nn.Module):
         self,
         x: torch.Tensor,
         mode: str = "predicted",
-        oracle_label: Optional[int] = None,
+        oracle_label: Optional[Union[int, Sequence[int], torch.Tensor]] = None,
     ) -> Dict[str, Any]:
         """
         Routes an input tensor (B, 3, 128, 128) to the designated specialist.
@@ -142,8 +148,21 @@ class HardRouter(nn.Module):
             pred_classes = torch.zeros(B, dtype=torch.long, device=self.device)
             probabilities = torch.zeros(B, NUM_CLASSES, device=self.device)
 
-        if mode == "oracle" and oracle_label is not None:
-            routed_classes = torch.full((B,), oracle_label, dtype=torch.long, device=self.device)
+        if mode == "oracle":
+            if oracle_label is None:
+                raise ValueError("oracle_label is required when mode='oracle'")
+            if isinstance(oracle_label, torch.Tensor):
+                routed_classes = oracle_label.to(device=self.device, dtype=torch.long).reshape(-1)
+            elif isinstance(oracle_label, Sequence) and not isinstance(oracle_label, (str, bytes)):
+                routed_classes = torch.as_tensor(oracle_label, dtype=torch.long, device=self.device).reshape(-1)
+            else:
+                routed_classes = torch.full((B,), int(oracle_label), dtype=torch.long, device=self.device)
+            if routed_classes.numel() != B:
+                raise ValueError(
+                    f"Expected {B} oracle labels for this batch, received {routed_classes.numel()}"
+                )
+            if torch.any((routed_classes < 0) | (routed_classes >= NUM_CLASSES)):
+                raise ValueError("Oracle labels must be class indices in [0, 3]")
         else:
             routed_classes = pred_classes
 
@@ -321,7 +340,7 @@ def evaluate_routing_benchmark(router: HardRouter, dataloader, task1_universal_m
         B = corrupted.size(0)
 
         # 1. Oracle Routing
-        oracle_out = router(corrupted, mode="oracle")["restored"]
+        oracle_out = router(corrupted, mode="oracle", oracle_label=labels)["restored"]
         # 2. Predicted Routing
         pred_dict = router(corrupted, mode="predicted")
         pred_out = pred_dict["restored"]

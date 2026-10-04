@@ -1,0 +1,685 @@
+\documentclass[journal,compsoc]{IEEEtran}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{url}
+\usepackage{cite}
+\usepackage[pagebackref=false,breaklinks=true,colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\graphicspath{{figures/}}
+
+\begin{document}
+
+\title{Adaptive Restoration and Multi-Style Synthesis: From Mixture-of-Experts Denoising to Conditional Adversarial Facial Translation}
+
+\author{Technical Report: Deep Generative Vision Systems Group%
+\thanks{Manuscript received October 2, 2026. This comprehensive technical report documents the complete theoretical formulation, algorithmic design, empirical validation, and microservice deployment of multi-task image restoration and conditional generative translation systems across the Oxford-IIIT Pet and FS2K benchmark corpora.}
+}
+
+\markboth{IEEE Transactions on Pattern Analysis and Machine Intelligence / Technical Report, October 2026}%
+{Technical Report: Multi-Task Image Restoration and Conditional Face-to-Sketch Synthesis}
+
+\maketitle
+
+\begin{abstract}
+Image degradation restoration and cross-modal generative synthesis represent two distinct computer-vision problems. This report evaluates four implemented systems: (1) a Universal Denoising Autoencoder, (2) a Hard-Routed Specialist ensemble, (3) a differentiable Soft Mixture-of-Experts (MoE), and (4) a Style-Conditioned Conditional Generative Adversarial Network (cGAN) for face-to-sketch translation.
+
+All quantitative statements in this report are taken from the saved evaluation artifacts. On the 36,690-case Oxford-IIIT Pet benchmark (ten deterministic manifests of 3,669 images), mean SSIM is 0.7336 for the Universal Autoencoder, 0.7986 for oracle hard routing, 0.8010 for predicted hard routing, and 0.8062 for the Soft MoE. On the nine corrupted manifests, the corresponding mean PSNR values are 23.78, 25.41, 25.40, and 25.54~dB. Predicted routing is correct on 35,884 of 36,690 cases (97.80\%). For Task 4, the selected epoch-21 checkpoint achieves 0.5117 SSIM, 15.48~dB PSNR, and 0.1072 L1 on all 1,046 official held-out FS2K pairs. Runtime measurements reported here are the saved ONNX Runtime CPU measurements; no saved Task 4 latency benchmark is available.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Image Restoration, Denoising Autoencoder, Mixture-of-Experts (MoE), Conditional GAN, Spatial Broadcasting, Hyperparameter Optimization, ONNX Runtime, Microservice Deployment.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\label{sec:intro}
+
+\IEEEPARstart{R}{estoring} corrupted visual observations and generating faithful artistic renderings across cross-modal domains represent two longstanding pillars of generative computer vision. In real-world robotic, medical, and mobile imaging systems, visual observations are frequently degraded by severe environmental and hardware perturbations. Specifically, sensors suffer from thermal and sensor read noise (additive Gaussian and impulse salt-and-pepper noise), optical defocus or mechanical motion (Gaussian blur), and physical occlusion (foreground obstructions and data dropout)~\cite{wang2004image, parkhi2012cats}.
+
+Concurrently, forensic sketch identification and computational artistic styling require mapping high-dimensional natural human portraits into sparse, stylized non-photorealistic sketches across distinct artistic paradigms (e.g., shaded pencil drawings, minimalist clean line contours, and high-contrast comic renderings)~\cite{chen2022fs2k}.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_pipeline_architecture.png}
+\caption{Unified end-to-end system architecture covering all four developmental tasks and production containerization: (Task 1) Shared bottleneck Universal Autoencoder; (Task 2) Hard-Routed Specialist pipeline with autonomous 4-class classifier; (Task 3) Fully differentiable Soft Mixture-of-Experts (MoE) with gating network and load-balancing regularization; (Task 4) Style-Conditioned Pix2Pix cGAN using spatial style broadcasting and PatchGAN discrimination; (Deployment) ONNX Runtime, FastAPI, Nginx, and the lockfile-resolved React 19.3.0 single-page application.}
+\label{fig:pipeline_architecture}
+\end{figure*}
+
+Historically, early approaches to visual restoration relied on isolated, task-specific restoration filters such as non-local means, bilateral filtering, or inverse deconvolution. The advent of deep convolutional neural networks introduced monolithic Denoising Autoencoders (DAEs), which attempt to compress degraded inputs into a compact lower-dimensional latent representation and project them back into clean image space. However, when a single monolithic model is tasked with restoring multiple, diametrically opposed corruption types simultaneously (e.g., sharpening blurred edges while simultaneously suppressing high-frequency sensor noise), severe parameter interference occurs. The shared latent manifold experiences ``representational compromise,'' where denoising gradients smooth out structural edges and deblurring gradients amplify high-frequency noise spikes.
+
+One modular alternative is \textit{Hard Routing}, in which a front-end classifier selects one restoration branch. Its decision is discrete. In the saved official-test run, 806 of 36,690 routing decisions differ from the manifest label; their aggregate effect is measured rather than assumed to be uniformly harmful.
+
+To bridge this gap, we investigate a \textit{Soft Mixture-of-Experts (MoE)} paradigm~\cite{jacobs1991adaptive, shazeer2017outrageously, fedus2022switch}. A differentiable gating network outputs continuous softmax routing probabilities, and the model computes a weighted combination of specialist outputs. The selected configuration includes an auxiliary balancing term; its routing behavior is measured explicitly in the saved evaluation rather than assumed from the objective.
+
+In parallel, generative cross-modal translation poses the distinct challenge of translating geometric facial landmarks into sparse strokes while preserving semantic identity. Standard autoencoders trained strictly under mean squared error ($L_2$) or absolute pixel error ($L_1$) generate blurry, washed-out images due to multi-modal averaging over structural ambiguities~\cite{isola2017image}. Conditional Generative Adversarial Networks (cGANs) mitigate this by introducing a localized PatchGAN discriminator that penalizes high-frequency structural discrepancies, compelling the generator to produce sharp, realistic stroke textures.
+
+In this technical report, we present an exhaustive theoretical and empirical investigation encompassing all four paradigms:
+\begin{enumerate}
+    \item \textbf{Task 1: Universal Autoencoder Restoration.} We construct and evaluate a deep convolutional autoencoder with a compressed bottleneck ($128 \to 4 \to 128$) trained simultaneously across four corruption modes on the Oxford-IIIT Pet dataset.
+    \item \textbf{Task 2: Hard-Routed Specialists.} We implement a 4-class degradation classifier coupled with three specialist restoration networks and a clean identity bypass. The saved official-test run records 97.80\% routing accuracy.
+    \item \textbf{Task 3: Differentiable Soft Mixture-of-Experts.} We train an end-to-end differentiable MoE with auxiliary load balancing. The saved official-test run records higher aggregate SSIM than the other evaluated restoration systems.
+    \item \textbf{Task 4: Multi-Style Face-to-Sketch cGAN.} We design a style-conditioned Pix2Pix architecture utilizing spatial broadcast conditioning, select Trial \#9 from the recorded Optuna study, and evaluate generation across 1,046 held-out FS2K pairs.
+    \item \textbf{Application Integration.} The repository connects ONNX exports to a Docker Compose stack containing FastAPI, Nginx, and a React frontend. Saved CPU timing is available for Tasks 1--3 only.
+\end{enumerate}
+
+The remainder of this report is organized as follows: Section~\ref{sec:related_work} surveys related literature. Section~\ref{sec:dataset} details our dataset preparation and corruption synthesis pipelines. Section~\ref{sec:methodology} presents the mathematical and architectural formulation across all four tasks. Section~\ref{sec:optuna} discusses the Bayesian hyperparameter search. Section~\ref{sec:experiments} presents the experimental setup, quantitative results, ablation analyses, and failure investigations. Section~\ref{sec:app_arch} outlines the software deployment architecture. Section~\ref{sec:limitations} and Section~\ref{sec:conclusion} conclude the paper.
+
+---
+
+\section{Related Research}
+\label{sec:related_work}
+
+\subsection{Image Denoising and Autoencoders}
+Denoising Autoencoders, pioneered by Vincent et al., establish that training neural networks to recover clean observations from stochastically corrupted inputs forces the intermediate representation to capture the robust, low-dimensional manifold of natural images. Ronneberger et al.~\cite{ronneberger2015u} introduced the U-Net architecture, incorporating skip connections between symmetrical contracting and expanding paths to preserve fine spatial details. In visual restoration, skip connections prevent spatial information loss in deeper layers, making them the standard backbone for modern deblurring and inpainting pipelines.
+
+\subsection{Mixture-of-Experts and Modular Networks}
+The Mixture-of-Experts (MoE) framework, originally formulated by Jacobs et al.~\cite{jacobs1991adaptive}, decomposes complex task spaces by training a set of specialized sub-networks alongside a gating mechanism that assigns sample-dependent weights. Shazeer et al.~\cite{shazeer2017outrageously} and Fedus et al.~\cite{fedus2022switch} demonstrated the extreme scalability of MoE in natural language processing through sparsely gated layers and Switch Transformers, introducing auxiliary balancing losses to prevent gating collapse onto a subset of dominant experts. In computer vision, MoE has been adapted for multi-task learning and dynamic routing, allowing models to activate task-specific parameters dynamically without incurring the full computational cost of monolithic networks.
+
+\subsection{Conditional Generative Adversarial Networks}
+Image-to-image translation underwent a paradigm shift with Pix2Pix by Isola et al.~\cite{isola2017image}, which demonstrated that conditional GANs conditioned on input imagery could learn mappings between disparate visual domains (e.g., semantic labels to street scenes, edges to photographs). Unlike unconditional GANs, the objective combines an adversarial loss $\mathcal{L}_{\text{cGAN}}$ with an explicit regression loss $\mathcal{L}_{L1}$. The PatchGAN discriminator, operating on localized $70 \times 70$ receptive patches, enforces high-frequency structural coherence while delegating low-frequency color and global geometry recovery to the $L_1$ penalty.
+
+\subsection{Facial Sketch Benchmark (FS2K)}
+Facial sketch synthesis has evolved from classical patch-based non-parametric matching to deep cross-modal translation. Chen et al.~\cite{chen2022fs2k} introduced FS2K, a large-scale benchmark represented in the supplied annotations by 2,104 face-sketch pairs across three distinct artistic drawing styles with detailed demographic and style annotations. Synthesizing sketches from this dataset requires learning style-dependent abstractions, ranging from cross-hatch shading to sparse vector outlines.
+
+---
+
+\section{Dataset Preparation and Corruption Pipelines}
+\label{sec:dataset}
+
+\subsection{Oxford-IIIT Pet Degradation Pipeline (Tasks 1--3)}
+To train and benchmark our restoration models (Tasks 1, 2, and 3), we utilize the Oxford-IIIT Pet dataset~\cite{parkhi2012cats}, comprising 7,349 images of 37 cat and dog breeds characterized by intricate fur textures, diverse facial structures, and varied illumination. All images are standardized to a resolution of $128 \times 128 \times 3$ and normalized to the dynamic range $[0, 1]$.
+
+\begin{table}[!b]
+\caption{Official Test Manifest Configuration for Tasks 1--3 (3,669 Records per Row)}
+\label{tab:corruption_config}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{llll}
+\toprule
+\textbf{Class} & \textbf{Severity} & \textbf{Saved Parameters} & \textbf{Seed} \\
+\midrule
+Clean & none & identity, label 0 & 42 \\
+Salt-and-pepper & low & $p=0.03$, label 1 & 42 \\
+Salt-and-pepper & medium & $p=0.08$, label 1 & 42 \\
+Salt-and-pepper & high & $p=0.15$, label 1 & 42 \\
+Gaussian blur & low & $k=3$, $\sigma=0.7$, label 2 & 42 \\
+Gaussian blur & medium & $k=5$, $\sigma=1.5$, label 2 & 42 \\
+Gaussian blur & high & $k=7$, $\sigma=2.5$, label 2 & 42 \\
+Rectangular occlusion & low & 1 mask, target area 0.10, label 3 & 42 \\
+Rectangular occlusion & medium & 2 masks, target area 0.20, label 3 & 42 \\
+Rectangular occlusion & high & 3 masks, target area 0.35, label 3 & 42 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+The ten saved manifests define four mutually exclusive labels and three severity levels for every corrupted class, as detailed in Table~\ref{tab:corruption_config}:
+\begin{itemize}
+    \item \textbf{Clean ($y=0$):} Unaltered baseline identity mapping.
+    \item \textbf{Noise ($y=1$):} Salt-and-pepper corruption with saved probabilities 0.03, 0.08, and 0.15.
+    \item \textbf{Blur ($y=2$):} Gaussian blur with saved $(k,\sigma)$ pairs $(3,0.7)$, $(5,1.5)$, and $(7,2.5)$.
+    \item \textbf{Occlusion ($y=3$):} One, two, or three rectangular masks with saved target-area ratios 0.10, 0.20, and 0.35.
+\end{itemize}
+
+The final benchmark evaluates each of the 3,669 official Oxford-IIIT Pet test images under all ten manifests, yielding 36,690 evaluated cases. Because clean has one manifest while each corrupted class has three, the case distribution is 10\% clean and 30\% for each corrupted class. The separate saved validation manifest contains 736 records and is not reported as the official test set.
+
+\subsection{FS2K Multi-Style Face-to-Sketch Dataset (Task 4)}
+For cross-modal synthesis, we utilize the FS2K benchmark~\cite{chen2022fs2k}. The dataset consists of photo-sketch pairs partitioned into:
+\begin{itemize}
+    \item \textbf{Training Set:} 899 curated pairs.
+    \item \textbf{Stratified Validation Set:} 159 pairs: Style 1 (54), Style 2 (52), and Style 3 (53).
+    \item \textbf{Official Test Set:} 1,046 pairs: Style 1 (619), Style 2 (381), and Style 3 (46).
+\end{itemize}
+Each portrait-sketch pair is resized to $128 \times 128 \times 3$ and normalized to the symmetric range $[-1, 1]$. The saved split manifest records seed 42, 899 training pairs, and 159 validation pairs drawn from the 1,058-pair official training portion.
+
+The machine-readable annotations encode the targets as Style 1, Style 2, and Style 3. Descriptive style names are omitted because they are not present in the saved evaluation artifact.
+
+---
+
+\section{System Architectures and Methodologies}
+\label{sec:methodology}
+
+\subsection{Task 1: Universal Denoising Autoencoder}
+The Universal Autoencoder comprises a symmetrical convolutional encoder-decoder network operating across all corruption types without conditional guidance.
+
+\subsubsection{Architecture}
+The encoder projects the input image $X \in \mathbb{R}^{3 \times 128 \times 128}$ through four strided downsampling stages:
+\begin{equation}
+\begin{aligned}
+    (3, 128, 128) &\xrightarrow{\text{Enc}_1} (64, 64, 64) \xrightarrow{\text{Enc}_2} (128, 32, 32) \\
+    &\xrightarrow{\text{Enc}_3} (256, 16, 16) \xrightarrow{\text{Enc}_4} (512, 8, 8) \to (256,8,8)
+\end{aligned}
+\end{equation}
+Each stage consists of a $3 \times 3$ 2D convolution, Batch Normalization, and LeakyReLU activation ($\alpha = 0.2$). The selected configuration records 64 base channels, 256 bottleneck channels, and dropout 0.05; the encoder output has shape $256\times8\times8$ rather than a 256-element vector.
+
+The decoder progressively reconstructs the image using four transposed-convolution stages ($3 \times 3$ kernel, stride 2, padding 1):
+\begin{equation}
+\begin{aligned}
+    (256, 8, 8) &\to (512,8,8) \xrightarrow{\text{Dec}_1} (256, 16, 16) \xrightarrow{\text{Dec}_2} (128, 32, 32) \\
+    &\xrightarrow{\text{Dec}_3} (64, 64, 64) \xrightarrow{\text{Dec}_4} (64,128,128) \to (3,128,128)
+\end{aligned}
+\end{equation}
+A final Sigmoid activation restricts output pixel intensities to $[0, 1]$.
+
+\subsubsection{Loss Function}
+The selected Task 1 configuration records a composite objective combining pixel-level mean absolute error ($L_1$) and Structural Similarity Index Measure (SSIM)~\cite{wang2004image}:
+\begin{equation}
+    \mathcal{L}_{\text{Task1}} = 0.90 \cdot \mathcal{L}_{L1}(X_{\text{pred}}, Y_{\text{clean}}) + 0.10 \cdot (1 - \text{SSIM}(X_{\text{pred}}, Y_{\text{clean}}))
+\end{equation}
+where:
+\begin{equation}
+    \text{SSIM}(x, y) = \frac{(2\mu_x\mu_y + c_1)(2\sigma_{xy} + c_2)}{(\mu_x^2 + \mu_y^2 + c_1)(\sigma_x^2 + \sigma_y^2 + c_2)}
+\end{equation}
+
+\subsection{Task 2: Hard-Routed Specialist Pipeline}
+To resolve the representational bottleneck of Task 1, Task 2 decouples degradation identification from image restoration via a modular two-tier hierarchy.
+
+\subsubsection{Autonomous Degradation Classifier}
+We deploy a convolutional classifier $C_\phi(X)$ trained to map any degraded input $X$ into logits over the four degradation classes:
+\begin{equation}
+    \hat{y} = \arg\max_{c \in \{0, 1, 2, 3\}} \text{Softmax}(C_\phi(X))_c
+\end{equation}
+The selected classifier configuration records base channels 16 and dropout 0.05. The implemented feature extractor has four pooled convolutional blocks ($16\to32\to64\to128$), followed by Adaptive Global Average Pooling and a $128\to128\to4$ classification head. It is trained using categorical cross-entropy:
+\begin{equation}
+    \mathcal{L}_{\text{CE}} = -\sum_{c=0}^3 y_c \log \hat{p}_c
+\end{equation}
+
+\subsubsection{Specialist Restoration Models}
+Depending on the predicted discrete class $\hat{y}$, execution is routed as follows:
+\begin{itemize}
+    \item \textbf{Case $\hat{y} = 0$ (Clean):} The input is passed directly to the output via a parameter-free \textit{Identity Bypass}: $X_{\text{out}} = X$.
+    \item \textbf{Case $\hat{y} = 1$ (Noise):} The input is routed to the saved noise-specialist autoencoder.
+    \item \textbf{Case $\hat{y} = 2$ (Blur):} The input is routed to the saved blur-specialist autoencoder.
+    \item \textbf{Case $\hat{y} = 3$ (Occlusion):} The input is routed to the saved occlusion-specialist autoencoder.
+\end{itemize}
+
+\subsection{Task 3: Differentiable Soft Mixture-of-Experts (MoE)}
+Hard routing uses a discrete classifier decision, whereas Task 3 computes a differentiable weighted combination of branch outputs. The measured effect of routing errors is reported in the official-test confusion matrix and restoration metrics below.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_moe_gating_distribution.png}
+\caption{Soft MoE mean routing weights computed from the official-test artifact. Dominant-branch weights are 93.01\% for clean, 99.88\%--99.97\% for salt-and-pepper, 82.21\%--98.37\% for blur, and 83.59\%--99.50\% for occlusion across saved severities. Overall weights are 13.21\%, 30.02\%, 28.54\%, and 28.23\%, reflecting the benchmark's 10/30/30/30 manifest composition.}
+\label{fig:moe_gating_distribution}
+\end{figure}
+
+\subsubsection{Gating Network and Expert Aggregation}
+Let $\{E_k\}_{k=1}^3$ denote the three specialist networks from Task 2, and let $E_0(X) = X$ denote the parameter-free clean identity bypass. A lightweight convolutional gating network $G_\theta(X)$ maps the input tensor to a 4-dimensional gating vector:
+\begin{equation}
+    g(X) = \text{Softmax}(W_g \cdot \text{GAP}(\text{ConvNet}(X)) + b_g) \in [0, 1]^4
+\end{equation}
+where $\sum_{k=0}^3 g_k(X) = 1$. The final restored output image is the continuous linear combination of all expert outputs:
+\begin{equation}
+    X_{\text{MoE}} = \sum_{k=0}^3 g_k(X) \cdot E_k(X)
+\end{equation}
+Because every operation in (7) is differentiable, gradients $\frac{\partial \mathcal{L}}{\partial X_{\text{MoE}}}$ backpropagate seamlessly into both the expert backbones $E_k$ and the gating parameters $\theta$.
+
+\subsubsection{Loss Formulation with Load Balancing}
+Unconstrained MoE architectures are susceptible to \textit{expert collapse}, where the gating network overfits to a single expert and starves the remaining specialists. To enforce uniform capacity utilization across large training batches $\mathcal{B}$, we formulate a joint loss function:
+\begin{equation}
+    \mathcal{L}_{\text{MoE}} = \lambda_{\text{rec}} \mathcal{L}_{L1} + (1-\lambda_{\text{rec}})(1-\text{SSIM}) + \lambda_{\text{CE}}\mathcal{L}_{\text{CE}} + \lambda_{\text{bal}}\mathcal{L}_{\text{balance}}
+\end{equation}
+where the selected-configuration artifact records $\lambda_{\text{rec}}=0.70225$, $\lambda_{\text{CE}}=0.08392$, and $\lambda_{\text{bal}}=0.01141$. The load-balancing penalty is computed as:
+\begin{equation}
+\begin{aligned}
+    \bar{g}_k &= \frac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} g_k(X^{(i)}), \\
+    \mathcal{L}_{\text{balance}} &= K \sum_{k=0}^{K-1} \left(\bar{g}_k - \frac{1}{K}\right)^2
+\end{aligned}
+\end{equation}
+This term penalizes deviation of batch-mean routing weights from a uniform target. The official-test routing weights are reported separately and follow the nonuniform manifest composition.
+
+\subsection{Task 4: Style-Conditioned Face-to-Sketch cGAN}
+Task 4 synthesizes sketches from natural portrait images under explicit discrete style conditioning $s \in \{0, 1, 2\}$.
+
+\subsubsection{Spatial Broadcast Conditioning}
+To inject style conditioning deeply throughout all convolutional feature maps without spatial bottlenecking, we implement \textit{Spatial Broadcasting}. The discrete style scalar $s \in \{0, 1, 2\}$ is embedded into a dense continuous vector $v_s = \text{Embedding}(s) \in \mathbb{R}^{d_{\text{embed}}}$. This vector is tiled and spatially broadcast across the entire spatial grid:
+\begin{equation}
+    V_s(c, h, w) = v_s(c), \quad \forall h \in [1, H], w \in [1, W]
+\end{equation}
+The resulting tensor $V_s \in \mathbb{R}^{d_{\text{embed}} \times H \times W}$ is concatenated channel-wise directly to the input photo $X \in \mathbb{R}^{3 \times H \times W}$, creating an enriched input tensor $\tilde{X} \in \mathbb{R}^{(3 + d_{\text{embed}}) \times H \times W}$.
+
+\subsubsection{U-Net Generator with Skip Connections}
+The generator $G$ employs the five-down/five-up U-Net recorded in the Task 4 tracker~\cite{ronneberger2015u}. Downsampling modules use $4 \times 4$ convolutions (stride 2, padding 1), Batch Normalization except in the first block, and LeakyReLU ($\alpha = 0.2$). Upsampling modules use transposed convolutions, Batch Normalization, ReLU, and four skip concatenations:
+\begin{equation}
+    U_i = \text{ReLU}(\text{BatchNorm}(\text{ConvTranspose2d}(U_{i-1})))
+\end{equation}
+The saved configuration uses 64 base channels, a 32-dimensional style embedding, and zero dropout. Its exported generator accepts a float32 photo tensor of shape $(B,3,128,128)$ plus an int64 style-index tensor of shape $(B)$ and returns a float32 sketch tensor of shape $(B,3,128,128)$.
+
+\subsubsection{PatchGAN Discriminator}
+The discriminator $D$ adopts a $70 \times 70$ Markovian PatchGAN architecture~\cite{isola2017image, li2016precomputed}. It takes as input the concatenated pair:
+\begin{equation}
+    Z_{\text{real}} = [\tilde{X}, Y_{\text{real}}], \quad Z_{\text{fake}} = [\tilde{X}, G(\tilde{X})]
+\end{equation}
+The training-only discriminator accepts photo and sketch tensors of shape $(B,3,128,128)$ plus a style-index tensor of shape $(B)$. With the 32-channel broadcast style embedding, its internal concatenated input has 38 channels. Instead of outputting a single global scalar, it returns a $(B,1,14,14)$ grid of decision logits.
+
+\subsubsection{Adversarial and Feature Reconstruction Objective}
+The generator and discriminator are optimized under a minimax game:
+\begin{equation}
+    \min_G \max_D \mathcal{L}_{\text{cGAN}}(G, D) + \lambda_{L1} \mathcal{L}_{L1}(G)
+\end{equation}
+where:
+\begin{align}
+    \mathcal{L}_{\text{cGAN}}(G, D) &= \mathbb{E}_{X, Y}[\log D(X, Y)] \nonumber \\
+    &+ \mathbb{E}_{X, s}[\log (1 - D(X, G(X, s)))] \\
+    \mathcal{L}_{L1}(G) &= \mathbb{E}_{X, Y, s}[\|Y - G(X, s)\|_1]
+\end{align}
+The $L_1$ loss enforces global low-frequency color and structural fidelity, while the adversarial loss $\mathcal{L}_{\text{cGAN}}$ drives high-frequency stroke sharpness.
+
+---
+
+\section{Optuna Bayesian Hyperparameter Optimization}
+\label{sec:optuna}
+
+All four assignment tasks use Optuna~\cite{akiba2019optuna}; Task 2 has separate studies for its classifier and shared specialist architecture. Table~\ref{tab:optuna_trial_inventory} reports the records that actually exist in the five canonical SQLite studies. Counts include completed, pruned, failed, and---for Task 1---one record still marked running; they are not inferred from command-line defaults.
+
+\begin{table*}[!t]
+\caption{Saved Optuna Study Records and Selected Trials}
+\label{tab:optuna_trial_inventory}
+\centering
+\begin{tabular}{lrrrrrl}
+\toprule
+\textbf{Study} & \textbf{Records} & \textbf{Complete} & \textbf{Pruned} & \textbf{Failed} & \textbf{Running} & \textbf{Selected Trial} \\
+\midrule
+Task 1 universal AE & 52 & 22 & 28 & 1 & 1 & \#46 \\
+Task 2 specialist architecture & 15 & 9 & 6 & 0 & 0 & \#14 \\
+Task 2 corruption classifier & 15 & 3 & 12 & 0 & 0 & \#2 \\
+Task 3 soft MoE & 16 & 7 & 8 & 1 & 0 & \#13 \\
+Task 4 cGAN & 22 & 8 & 13 & 1 & 0 & \#9 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure}[!b]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_optuna_study.png}
+\caption{Task 4 Optuna objective rows read from the saved workbook: the plot contains the 21 completed/pruned trials with recorded values and highlights selected Trial \#9 (SSIM 0.4997). The canonical SQLite study contains 22 total records because it also retains one failed trial with no objective value.}
+\label{fig:optuna_study}
+\end{figure}
+
+\begin{table}[!t]
+\caption{Saved Task 4 Optuna Selection (Trial \#9)}
+\label{tab:optuna_search_space}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lll}
+\toprule
+\textbf{Recorded Field} & \textbf{Saved Value} & \textbf{Source} \\
+\midrule
+Best trial number & 9 & JSON \\
+Generator LR ($g\_lr$) & $2.7978 \times 10^{-4}$ & JSON \\
+Discriminator LR ($d\_lr$) & $5.1535 \times 10^{-5}$ & JSON \\
+Batch size & 16 & JSON \\
+Base channels ($N_f$) & 64 & JSON \\
+Dropout rate & 0.0 & JSON \\
+Style embedding dimension ($d_e$) & 32 & JSON \\
+L1 loss weight ($\lambda_{L1}$) & 150.0 & JSON \\
+\midrule
+\textbf{Best validation SSIM} & \textbf{0.4997} & \textbf{JSON} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection{Search Space and Objective Formulation}
+The saved selection file records the best trial, objective, and seven selected hyperparameters summarized in Table~\ref{tab:optuna_search_space}. The workbook contains 21 objective-bearing trial rows, while the SQLite database contains those rows plus one failed record. The report does not infer unrecorded search bounds or sampling distributions.
+
+\subsection{Empirical Analysis of Search Trajectory}
+Fig.~\ref{fig:optuna_study} plots the recorded trial rows and selected configuration:
+\begin{enumerate}
+    \item \textbf{Learning-rate ratio:} Trial \#9 records $g\_lr/d\_lr=5.43$ (rounded from the saved values).
+    \item \textbf{Reconstruction weight:} The selected trial records $\lambda_{L1}=150.0$; the artifact supports selection, but not a causal claim that this value is globally optimal.
+    \item \textbf{Checkpoint selection:} Trial \#9 records validation SSIM 0.4997. In the subsequent 100-epoch log, the saved epoch-21 checkpoint records validation SSIM 0.5327, PSNR 16.34~dB, and L1 0.0935.
+\end{enumerate}
+
+---
+
+\section{Experimental Setup and Results}
+\label{sec:experiments}
+
+\subsection{Implementation and Training Details}
+The saved official-test record identifies Python 3.12.13, PyTorch 2.6.0+cu124, ONNX Runtime 1.30.0, Windows 11, batch size 32, seed 42, and \texttt{CPUExecutionProvider}. The final logs contain 50 Task 1 epochs; 15 Task 2 classifier epochs; 25 epochs for each Task 2 specialist; 3 Task 3 gate-warm-up epochs followed by 20 joint epochs (23 total); and 100 Task 4 epochs. The selected-checkpoint epoch fields are 49, 14, 25, 18 (joint stage), and 21 respectively. Task 4 uses batch size 16 in its selected configuration. Hardware claims not present in these artifacts are not reported as benchmark facts.
+
+\begin{table*}[!t]
+\caption{Checkpoint Parameter Counts and Serialized Model Sizes}
+\label{tab:model_sizes}
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Saved component} & \textbf{Trainable parameters} & \textbf{PyTorch checkpoint (MiB)} & \textbf{ONNX export (MiB)} \\
+\midrule
+Task 1 universal autoencoder & 5,502,915 & 63.05 & 20.99 \\
+Task 2 corruption classifier & 114,964 & 1.35 & 0.44 \\
+Task 2 noise specialist & 2,333,435 & 26.75 & 8.91 \\
+Task 2 blur specialist & 2,333,435 & 26.75 & 8.91 \\
+Task 2 occlusion specialist & 2,333,435 & 26.75 & 8.91 \\
+Task 3 complete soft MoE & 7,115,269 & 81.60 & 27.18 \\
+Task 4 generator & 16,693,027 & 63.72 & 63.69 \\
+Task 4 discriminator & 2,801,569 & 10.70 & --- \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+The parameter counts come from the saved state dictionaries after excluding BatchNorm running-statistic buffers. File sizes use binary mebibytes ($2^{20}$ bytes); checkpoint sizes can exceed raw parameter storage because some files also retain optimizer state and metadata. The discriminator is used during training but is not exported for deployment.
+
+\begin{table*}[!t]
+\caption{Exact ONNX Runtime Tensor Interfaces (Dynamic Batch Dimension $B$)}
+\label{tab:onnx_interfaces}
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lll}
+\toprule
+\textbf{Export} & \textbf{Inputs} & \textbf{Outputs} \\
+\midrule
+Task 1 universal & \texttt{input}: float32 $(B,3,128,128)$ & \texttt{output}: float32 $(B,3,128,128)$ \\
+Task 2 classifier & \texttt{input\_image}: float32 $(B,3,128,128)$ & \texttt{logits}: float32 $(B,4)$ \\
+Task 2 specialists (each) & \texttt{corrupted\_image}: float32 $(B,3,128,128)$ & \texttt{restored\_image}: float32 $(B,3,128,128)$ \\
+Task 3 soft MoE & \texttt{corrupted\_image}: float32 $(B,3,128,128)$ & \texttt{restored\_image}: float32 $(B,3,128,128)$; \texttt{routing\_weights}: float32 $(B,4)$ \\
+Task 4 generator & \texttt{photo}: float32 $(B,3,128,128)$; \texttt{style\_idx}: int64 $(B)$ & \texttt{sketch}: float32 $(B,3,128,128)$ \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\subsection{Result Provenance}
+Final Task 1--3 values are read from \texttt{evaluation\_results/tasks\_1\_3/full\_official\_test\_results.json}; severity and routing summaries are mirrored in the adjacent CSV files. Task 4 values are read from \texttt{evaluation\_results/task4\_test\_metrics.json}. Hyperparameter and checkpoint claims use the corresponding JSON files in \texttt{checkpoints/}, while epoch claims use the saved CSV/XLSX training logs. The exact image identifiers, metrics, and selection rules for the qualitative and failure-case panels are stored in \texttt{evaluation\_results/report\_visual\_evidence.json}. Values computed from artifact fields, such as macro scores or corrupted-only means, are explicitly described as derived summaries.
+
+\subsection{MLflow Run Tracking}
+The saved results were registered with MLflow 3.16.1 in experiment \texttt{genai-assignment-official-evaluation} (experiment ID 1). The parent run ID is \texttt{3e1b28afab57490fbe6b02b07ca5d454}; child run IDs are \texttt{0f13f7bfa2c549329a6506a5e5f3049c} (Task 1), \texttt{0b82054fbe2e4591ac2a8a8824168a03} (Task 2), \texttt{2366348a9d714525bc5211c1f80f56b8} (Task 3), and \texttt{2955b70f1c084313872ef35abf3d6e57} (Task 4). The machine-readable index stores the complete local UI URLs in \texttt{evaluation\_results/mlflow\_run\_index.json}. After starting the local UI on port 5000, the parent run is available at \href{http://127.0.0.1:5000/\#/experiments/1/runs/3e1b28afab57490fbe6b02b07ca5d454}{this MLflow run link}.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_training_curves.png}
+\caption{Curves generated directly from the saved training logs: (a) Task 1 train/validation loss over 50 epochs; (b) Task 2 validation SSIM for the three 25-epoch specialist runs; (c) Task 3 train/validation total loss during the 20 joint epochs following a separate 3-epoch gate warm-up; and (d) Task 4 discriminator loss, generator adversarial loss, and validation SSIM over 100 epochs.}
+\label{fig:training_curves}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_representative_outputs.png}
+\caption{Representative held-out outputs from all four implemented tasks. Tasks 1--3 use the same first image in the official medium salt-and-pepper manifest for a direct model comparison; Task 4 uses the FS2K test observation whose SSIM is closest to the saved aggregate Task 4 SSIM. Rows show the input, model output, held-out target, and absolute-error map. These deterministic selection rules and exact sample identifiers are recorded in \texttt{report\_visual\_evidence.json}.}
+\label{fig:representative_outputs}
+\end{figure*}
+
+\subsection{Quantitative Results Across Tasks 1--3}
+Table~\ref{tab:restoration_quantitative} reports the saved official-test run. Each system processes the same 36,690 cases: one clean and nine corrupted manifests, each containing the same 3,669 source images. Corrupted-only columns are derived as equal-weight means over the nine corrupted manifests and avoid the 100~dB cap assigned to exact clean identity outputs.
+
+\begin{table*}[!t]
+\caption{Tasks 1--3 on the Saved Official Test Manifests}
+\label{tab:restoration_quantitative}
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccc}
+\toprule
+\textbf{System} & \textbf{Cases} & \textbf{All SSIM} & \textbf{Corrupt L1} & \textbf{Corrupt SSIM} & \textbf{Corrupt PSNR} & \textbf{CPU ms/image} & \textbf{Route Acc.} \\
+\midrule
+Task 1: Universal & 36,690 & 0.7336 & 0.0468 & 0.7282 & 23.78 & 14.44 & --- \\
+Task 2: Oracle hard route & 36,690 & 0.7986 & 0.0381 & 0.7762 & 25.41 & 23.08 & 100\% by definition \\
+Task 2: Predicted hard route & 36,690 & 0.8010 & 0.0377 & 0.7793 & 25.40 & \textbf{9.87} & 97.80\% \\
+\textbf{Task 3: Soft MoE} & 36,690 & \textbf{0.8062} & \textbf{0.0368} & \textbf{0.7852} & \textbf{25.54} & 31.31 & --- \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{table}[!b]
+\caption{Task 2 Routing Metrics Derived from the Saved Official-Test Confusion Matrix}
+\label{tab:classifier_metrics}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Corruption Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} & \textbf{Support} \\
+\midrule
+Clean ($y=0$) & 0.8350 & 0.9736 & 0.8990 & 3,669 \\
+Noise ($y=1$) & 1.0000 & 1.0000 & 1.0000 & 11,007 \\
+Blur ($y=2$)  & 0.9924 & 0.9783 & 0.9853 & 11,007 \\
+Occlusion ($y=3$) & 0.9984 & 0.9573 & 0.9774 & 11,007 \\
+\midrule
+\textbf{Macro Average / Total} & \textbf{0.9564} & \textbf{0.9773} & \textbf{0.9654} & \textbf{36,690} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_confusion_matrix.png}
+\caption{Normalized Task 2 routing confusion matrix generated from the saved official-test counts. Predicted routing is correct for 35,884 of 36,690 cases (97.80\%).}
+\label{fig:confusion_matrix}
+\end{figure}
+
+\subsubsection{Analysis of Task 1 vs. Task 2 vs. Task 3}
+\begin{itemize}
+    \item \textbf{Task 1:} The Universal Autoencoder records 0.7336 SSIM across all ten manifests and 0.7282 SSIM/23.78~dB on the nine corrupted manifests. The saved metrics establish the performance gap but do not, by themselves, identify its causal mechanism.
+    \item \textbf{Task 2:} Predicted routing records 0.8010 overall SSIM and 97.80\% routing accuracy. Its overall SSIM is 0.0024 above oracle routing because some misroutes improve pixel metrics on particular cases; ``oracle'' here means the branch matching the corruption label, not the per-image metric-maximizing branch. All 11,007 noise cases are routed correctly, while most errors send blur or occlusion cases to the clean branch.
+    \item \textbf{Task 3:} Soft MoE records the best saved overall SSIM (0.8062) and corrupted-only SSIM (0.7852), improvements of 0.0727 and 0.0569 over Task 1 respectively. It exceeds predicted hard routing by 0.0052 overall SSIM. These results support a measured advantage on this benchmark, not a general claim of immunity to routing failures.
+\end{itemize}
+
+\begin{table*}[!t]
+\caption{Saved Task 1 Severity Metrics and Task 3 Routing/Restoration Breakdown ($N=3,669$ per condition)}
+\label{tab:severity_routing_breakdown}
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llccccc}
+\toprule
+\textbf{Corruption} & \textbf{Severity} & \textbf{Task 1 SSIM} & \textbf{Task 1 PSNR} & \textbf{Task 3 SSIM} & \textbf{Task 3 PSNR} & \textbf{Task 3 Dominant Route (Weight)} \\
+\midrule
+Clean & none & 0.7817 & 25.47 & 0.9960 & 60.24 & Clean identity (0.9301) \\
+Salt-and-pepper & low & 0.7662 & 25.28 & 0.8148 & 27.14 & Noise expert (0.9988) \\
+Salt-and-pepper & medium & 0.7407 & 24.87 & 0.8016 & 26.82 & Noise expert (0.9995) \\
+Salt-and-pepper & high & 0.7035 & 24.17 & 0.7742 & 26.10 & Noise expert (0.9997) \\
+Gaussian blur & low & 0.7829 & 25.60 & 0.8644 & 28.78 & Blur expert (0.8221) \\
+Gaussian blur & medium & 0.7679 & 25.42 & 0.8289 & 27.85 & Blur expert (0.9837) \\
+Gaussian blur & high & 0.7166 & 24.42 & 0.7633 & 26.16 & Blur expert (0.9819) \\
+Rectangular occlusion & low & 0.7357 & 23.00 & 0.8031 & 24.06 & Occlusion expert (0.8359) \\
+Rectangular occlusion & medium & 0.6959 & 21.47 & 0.7358 & 22.45 & Occlusion expert (0.9756) \\
+Rectangular occlusion & high & 0.6445 & 19.78 & 0.6805 & 20.53 & Occlusion expert (0.9950) \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_cgan_qualitative_grid.png}
+\caption{Samples produced during the saved epoch-21 official FS2K test run. Rows show Ground Truth, Input Photo, Generated Sketch, and the per-pixel L1 error map; two recorded examples are shown for each style. Numerical conclusions are taken from the complete test artifact rather than this six-example visualization.}
+\label{fig:cgan_qualitative_grid}
+\end{figure*}
+
+\subsection{Quantitative Results for Task 4 (Face-to-Sketch)}
+Table~\ref{tab:task4_style_breakdown} details the empirical performance of the conditional GAN across all three artistic styles evaluated on 1,046 held-out test pairs from FS2K.
+
+\begin{table}[!h]
+\caption{Task 4 cGAN Performance Breakdown Across Styles (FS2K Test Set, $N=1,046$)}
+\label{tab:task4_style_breakdown}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Artistic Style} & \textbf{Pairs} & \textbf{SSIM $\uparrow$} & \textbf{PSNR (dB) $\uparrow$} & \textbf{L1 $\downarrow$} \\
+\midrule
+Style 1 & 619 & 0.5579 & 17.21 & 0.0807 \\
+Style 2 & 381 & 0.4227 & 12.28 & 0.1551 \\
+Style 3 & 46 & \textbf{0.6272} & \textbf{18.72} & \textbf{0.0678} \\
+\midrule
+\textbf{Aggregate Overall} & \textbf{1,046} & \textbf{0.5117} & \textbf{15.48} & \textbf{0.1072} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsubsection{Stylistic Discrepancy Analysis}
+As recorded in the complete Task 4 JSON artifact:
+\begin{itemize}
+    \item \textbf{Style 1:} 619 pairs yield 0.5579 SSIM, 17.21~dB PSNR, and 0.0807 L1.
+    \item \textbf{Style 2:} 381 pairs yield the lowest saved SSIM and PSNR and the highest L1: 0.4227, 12.28~dB, and 0.1551 respectively.
+    \item \textbf{Style 3:} 46 pairs yield the highest saved SSIM and PSNR and the lowest L1: 0.6272, 18.72~dB, and 0.0678 respectively. Its smaller support should be considered when comparing styles.
+\end{itemize}
+
+\subsection{Result-Grounded Error Analysis}
+The saved manifests and metrics support the following limited conclusions:
+\begin{enumerate}
+    \item \textbf{Severity degradation:} Task 1 SSIM falls from 0.7662 to 0.7035 across low-to-high salt-and-pepper noise, from 0.7829 to 0.7166 across blur, and from 0.7357 to 0.6445 across occlusion.
+    \item \textbf{Routing errors:} The saved Task 2 confusion matrix contains 806 errors: 97 clean, 239 blur, and 470 occlusion cases are misrouted; all 11,007 noise cases are correct. Of these errors, 706 are assignments to the clean branch.
+    \item \textbf{Style disparity:} Task 4 Style 2 trails Style 1 by 0.1352 SSIM and Style 3 by 0.2045 SSIM. The artifacts quantify this gap but do not establish a causal explanation.
+\end{enumerate}
+
+Figure~\ref{fig:genuine_failures} presents four actual held-out failures rather
+than schematic examples. For Task 1, \texttt{basset\_hound\_76} is the lowest-
+SSIM result (0.3278) among the first 384 official high-occlusion cases. The
+Task 2 classifier sends the clean image \texttt{Abyssinian\_60} to the blur
+expert with 0.497 confidence, reducing SSIM from the identity oracle's 1.0000
+to 0.9067. For Task 3, \texttt{american\_bulldog\_68} is the lowest-SSIM result
+(0.4026) among the same bounded high-occlusion scan after excluding the Task 1
+image. The Task 4 panel is the global minimum across all 1,046 held-out FS2K
+pairs: \texttt{photo1/image1685}, with SSIM 0.2196. These cases demonstrate
+lost content under large masks, a measurable hard-routing penalty, residual
+occlusion reconstruction blur, and loss of facial/sketch structure,
+respectively.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_failure_cases.png}
+\caption{Four genuine held-out failure cases produced by the submitted checkpoints. From left: Task 1 high occlusion, Task 2 clean-to-blur routing error, Task 3 high occlusion, and the lowest-SSIM Task 4 result across the complete FS2K test set. Rows show input, output, reference target, and absolute-error map. Selection rules and unrounded metrics are saved in \texttt{evaluation\_results/report\_visual\_evidence.json}.}
+\label{fig:genuine_failures}
+\end{figure*}
+
+---
+
+\section{Application Architecture and Deployment}
+\label{sec:app_arch}
+
+The repository contains a React frontend, Nginx configuration, FastAPI backend, Docker Compose configuration, and ONNX model exports, illustrated in Fig.~\ref{fig:app_architecture}. This is an implementation inventory, not a production-readiness benchmark.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_app_architecture.png}
+\caption{Repository application architecture: the React 19.3.0 frontend is built by Vite and served by Nginx; Nginx proxies API requests to the FastAPI backend and ONNX Runtime inference layer. This diagram is architectural and carries no latency claim.}
+\label{fig:app_architecture}
+\end{figure}
+
+\begin{table}[!b]
+\caption{Saved ONNX Runtime CPU Timing from the 36,690-Case Official-Test Run}
+\label{tab:latency_benchmarks}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccc}
+\toprule
+\textbf{System} & \textbf{Provider} & \textbf{Total Time (ms)} & \textbf{ms/image} \\
+\midrule
+Task 1: Universal & CPUExecutionProvider & 529,931.80 & 14.44 \\
+Task 2: Oracle hard route & CPUExecutionProvider & 846,965.97 & 23.08 \\
+Task 2: Predicted hard route & CPUExecutionProvider & 362,051.75 & \textbf{9.87} \\
+Task 3: Soft MoE & CPUExecutionProvider & 1,148,618.70 & 31.31 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection{User Interface}
+Figures~\ref{fig:stitch_design} and~\ref{fig:stitch_generated_screen} record the original interface design artifacts. Figure~\ref{fig:implemented_app} is a browser capture of the implemented React application while the FastAPI/ONNX backend health endpoint reported healthy. These figures are implementation evidence and are not used to support model-quality or runtime claims.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_stitch_design.png}
+\caption{Saved interface wireframe showing the four-task workspace layout.}
+\label{fig:stitch_design}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_stitch_visionstudio_generated.png}
+\caption{Saved Google Stitch desktop design artifact for the four-task application.}
+\label{fig:stitch_generated_screen}
+\end{figure}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_implemented_app.png}
+\caption{Implemented React/Tailwind application captured from the locally running Vite frontend at \texttt{127.0.0.1:5173}. The green status indicator reflects a successful response from the live FastAPI/ONNX health endpoint. The overview exposes all four task workspaces and displays values synchronized with the saved official evaluation artifacts.}
+\label{fig:implemented_app}
+\end{figure*}
+
+The saved interface assets show:
+\begin{itemize}
+    \item \textbf{Color Palette:} Ragin Beige (\texttt{\#fff5d7}) foundational canvas, Coral Pink (\texttt{\#ff5e6c}) primary interactive action buttons, Sleuthe Yellow (\texttt{\#feb300}) classification tags, Pink Leaf (\texttt{\#ffaaab}) subtle borders, and Dark Plum (\texttt{\#2b1b22}) editorial typography.
+    \item \textbf{Typography:} Newsreader headings paired with DM Sans body text.
+    \item \textbf{Four-Task Workspace Grid:} Dedicated cards for Universal Autoencoder metrics, Hard-Routed active classification status, Soft MoE dynamic softmax gating progress bars, and Face-to-Sketch multi-style synthesis with interactive export.
+\end{itemize}
+
+\subsection{ONNX Runtime Computational Graph Optimization}
+The saved official-test artifact identifies ONNX files and SHA-256 hashes for Task 1, the Task 2 classifier and three specialists, and Task 3. The exports use a dynamic batch dimension $B$ with image tensors shaped $(B,3,128,128)$, as detailed in Table~\ref{tab:onnx_interfaces}; Task 4 additionally accepts an int64 style vector shaped $(B)$. Table~\ref{tab:latency_benchmarks} reports saved CPUExecutionProvider measurements without extrapolating CUDA fusion, GPU latency, or Task 4 latency, none of which is stored in the machine-readable evaluation output.
+
+\subsection{Microservice Stack and Containerization}
+The repository's Docker Compose configuration comprises:
+\begin{enumerate}
+    \item \textbf{Frontend Container:} The committed lockfile resolves React 19.3.0, React DOM 19.3.0, Tailwind CSS 4.3.3, and Vite 8.3.1; Nginx serves the production build.
+    \item \textbf{Backend Container:} FastAPI and Uvicorn on port 8000, with model and dataset directories mounted read-only by Docker Compose.
+    \item \textbf{Inference REST API:} The exact POST routes are \texttt{/api/universal-restoration}, \texttt{/api/hard-routing}, \texttt{/api/soft-mixture}, and \texttt{/api/face-to-sketch}.
+    \item \textbf{Supporting GET routes:} The backend exposes \texttt{/health}, \texttt{/api/sample-images}, \texttt{/api/sample-images/\{filename\}}, \texttt{/api/face-samples}, and \texttt{/api/face-samples/\{subfolder\}/\{filename\}}.
+\end{enumerate}
+
+---
+
+\section{Limitations}
+\label{sec:limitations}
+The saved evaluations expose several limitations:
+\begin{itemize}
+    \item \textbf{Benchmark scope:} The ten restoration manifests contain one corruption at a time; no compound-corruption result is saved.
+    \item \textbf{Resolution scope:} The recorded evaluations use $128\times128$ inputs, so no claim is made for other resolutions.
+    \item \textbf{Severity trend:} High rectangular occlusion is the weakest Task 1 condition (0.6445 SSIM) and the weakest high-severity Task 3 condition (0.6805 SSIM).
+    \item \textbf{Task 4 imbalance:} Style supports are 619, 381, and 46, so the Style 3 estimate is based on substantially fewer examples.
+    \item \textbf{Runtime scope:} Saved latency covers Tasks 1--3 under CPUExecutionProvider only; no reproducible Task 4 or GPU latency artifact is present.
+\end{itemize}
+
+---
+
+\section{Conclusion}
+\label{sec:conclusion}
+The saved official-test run shows that Soft MoE has the highest overall restoration SSIM (0.8062), followed by predicted hard routing (0.8010), oracle hard routing (0.7986), and the Universal Autoencoder (0.7336). Across the nine corrupted manifests, Soft MoE also has the highest mean SSIM (0.7852) and PSNR (25.54~dB). Predicted hard routing is correct on 97.80\% of the 36,690 cases, while its slightly higher SSIM than label-oracle routing shows that the label-matched specialist is not always the metric-maximizing branch. For Task 4, the epoch-21 checkpoint records 0.5117 SSIM, 15.48~dB PSNR, and 0.1072 L1 across 1,046 FS2K test pairs, with Style 2 producing the weakest per-style metrics. These conclusions are limited to the saved manifests, model hashes, and runtime environment documented in the evaluation artifacts.
+
+---
+
+\section{Submission Links}
+\label{sec:submission_links}
+The complete source repository is available at
+\url{https://github.com/ataraxiiaa/genAI-a1}. The required five-to-seven-minute
+YouTube demonstration has not yet been supplied; replace
+\texttt{YOUTUBE\_URL\_PENDING} with the final public or unlisted video URL before
+submission. Trained PyTorch and ONNX model artifacts are managed through Git
+LFS, with clone and retrieval instructions in the repository README.
+
+\appendices
+\section{AI-Assisted Development Disclosure}
+OpenAI Codex/ChatGPT was used for repository inspection, evaluation debugging,
+creation of the reproducible Tasks 1--3 benchmark, MLflow integration,
+result-grounded report editing, and documentation. Google Stitch was used to
+produce the interface design evidence shown in
+Figs.~\ref{fig:stitch_design} and~\ref{fig:stitch_generated_screen} and to
+inform the React/Tailwind implementation.
+
+AI-generated code and prose were not accepted as evidence by themselves. The
+Tasks 1--3 evaluator was executed on ten deterministic Oxford-IIIT Pet
+manifests and records model hashes, providers, per-condition metrics, severity
+breakdowns, and routing counts. Oracle and predicted hard routing were compared
+on identical samples. Task 4 was rerun on all 1,046 official held-out FS2K
+pairs after correcting its data-path/pairing evaluation issue. Quantitative
+tables and claims were then rewritten from the saved JSON/CSV artifacts, and
+the results were registered in the local MLflow experiment whose run IDs are
+documented in \texttt{TRACKING.md}. Unsupported claims were removed rather than
+filled using AI-generated estimates. The detailed disclosure, verification
+steps, limitations, and student review checklist are provided in
+\texttt{AI\_USE\_APPENDIX.md} at the repository root.
+
+---
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

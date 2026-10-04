@@ -1,0 +1,983 @@
+{
+  "schema_version": 1,
+  "run_kind": "full_official_test",
+  "created_at_utc": "2026-10-03T17:35:44.029401+00:00",
+  "seed": 42,
+  "batch_size": 32,
+  "num_workers": 0,
+  "max_samples_per_manifest": null,
+  "onnx_providers": [
+    "CPUExecutionProvider"
+  ],
+  "environment": {
+    "python": "3.12.13",
+    "torch": "2.6.0+cu124",
+    "onnxruntime": "1.30.0",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
+  "models": {
+    "task1_universal": {
+      "path": "universal-restoration\\checkpoints\\universal_ae.onnx",
+      "sha256": "0f8302549fc7bbc0fd085be1c345e7305e3b1c027bb3fd7addde7b2c516da156"
+    },
+    "task2_classifier": {
+      "path": "checkpoints\\corruption_classifier.onnx",
+      "sha256": "4b6788f62b1a6070fe4f984b9338c38415cffc696ebc7c140542020b6ed8bdca"
+    },
+    "task2_noise": {
+      "path": "checkpoints\\specialist_noise.onnx",
+      "sha256": "c904a66c08ea6fb098b777dc1e1860a1cac1680eb3f448ecc94eaaa048bb458d"
+    },
+    "task2_blur": {
+      "path": "checkpoints\\specialist_blur.onnx",
+      "sha256": "e485ed2c8dbc430d589ceaee0fc564985e634a49f2a2cb9f9af6e51a6d254b91"
+    },
+    "task2_occlusion": {
+      "path": "checkpoints\\specialist_occlusion.onnx",
+      "sha256": "08fb55a79fcb0407f678e0bd723dbcf56d36c3de184471147af6b67b91d8f82d"
+    },
+    "task3_soft_moe": {
+      "path": "checkpoints\\soft_moe.onnx",
+      "sha256": "1b054b539cc88a25cfcf05b8d8e9c6e5179aa9f4135d4f14a8675b0a06d2bd53"
+    }
+  },
+  "manifests": {
+    "clean": {
+      "path": "manifests\\test_clean.json",
+      "records": 3669,
+      "corruption_type": "clean",
+      "severity": null,
+      "sha256": "33a03aa352cb9ed664689299585635f8f483189f1760d44b0716047075fab235"
+    },
+    "salt_and_pepper_low": {
+      "path": "manifests\\test_salt_and_pepper_low.json",
+      "records": 3669,
+      "corruption_type": "salt_and_pepper",
+      "severity": "low",
+      "sha256": "7be4223ce43768b056ac6ea5acc4e2556b94e4dead8faab96141ee5edf91ea52"
+    },
+    "salt_and_pepper_medium": {
+      "path": "manifests\\test_salt_and_pepper_medium.json",
+      "records": 3669,
+      "corruption_type": "salt_and_pepper",
+      "severity": "medium",
+      "sha256": "78faa92fa6ac3fc4581d6b97948cac4ee8abef04b01ce6063bfd2e69315656f6"
+    },
+    "salt_and_pepper_high": {
+      "path": "manifests\\test_salt_and_pepper_high.json",
+      "records": 3669,
+      "corruption_type": "salt_and_pepper",
+      "severity": "high",
+      "sha256": "37dfc4ee529ba1caa87e744118082dc234fc740e6d4c15852e5be870efee0fae"
+    },
+    "gaussian_blur_low": {
+      "path": "manifests\\test_gaussian_blur_low.json",
+      "records": 3669,
+      "corruption_type": "gaussian_blur",
+      "severity": "low",
+      "sha256": "a85653b6e5cd00b5bfb2eddccb9b33696fadecff71fa23c5456409b8e41f9582"
+    },
+    "gaussian_blur_medium": {
+      "path": "manifests\\test_gaussian_blur_medium.json",
+      "records": 3669,
+      "corruption_type": "gaussian_blur",
+      "severity": "medium",
+      "sha256": "4e7576f0bd89303a5a7cb1c6474a00b971dd3402b7c6eee42145e1490239e3b4"
+    },
+    "gaussian_blur_high": {
+      "path": "manifests\\test_gaussian_blur_high.json",
+      "records": 3669,
+      "corruption_type": "gaussian_blur",
+      "severity": "high",
+      "sha256": "beb2d18018d23910200e2e93067307d7c3ffcd53e5552f56bff9028a22a539df"
+    },
+    "rectangular_occlusion_low": {
+      "path": "manifests\\test_rectangular_occlusion_low.json",
+      "records": 3669,
+      "corruption_type": "rectangular_occlusion",
+      "severity": "low",
+      "sha256": "ffc637ac47c866c1265bd3b16860cf103f7e8179ca263092292b23ac7c57bd4f"
+    },
+    "rectangular_occlusion_medium": {
+      "path": "manifests\\test_rectangular_occlusion_medium.json",
+      "records": 3669,
+      "corruption_type": "rectangular_occlusion",
+      "severity": "medium",
+      "sha256": "ae0aa6667c9de6b6faa80d6843084b8a3615b521fbe810eb0014284420521439"
+    },
+    "rectangular_occlusion_high": {
+      "path": "manifests\\test_rectangular_occlusion_high.json",
+      "records": 3669,
+      "corruption_type": "rectangular_occlusion",
+      "severity": "high",
+      "sha256": "d2a29bc34e7f9cf5327f70a0064971951790516f5a52344ac0c84fa0f833b3fe"
+    }
+  },
+  "results_by_manifest": {
+    "clean": {
+      "corruption_type": "clean",
+      "severity": null,
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.039583371490703095,
+          "mean_ssim": 0.7817151632904195,
+          "mean_psnr_db": 25.4703308754248,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 34206.89249994757,
+          "inference_ms_per_image": 9.323219542095277
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.0,
+          "mean_ssim": 0.9999986265426307,
+          "mean_psnr_db": 100.0,
+          "exact_match_samples": 3669,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 617.487999930745,
+          "inference_ms_per_image": 0.16829871897812618
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.0007528159706468769,
+          "mean_ssim": 0.9959935302401668,
+          "mean_psnr_db": 98.1209188790372,
+          "exact_match_samples": 3572,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 6437.953099986771,
+          "inference_ms_per_image": 1.7546887707786238,
+          "routing_accuracy": 0.9735622785500136,
+          "confusion_matrix": [
+            [
+              3572,
+              0,
+              80,
+              17
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.0018234562329820015,
+          "mean_ssim": 0.9959528494933932,
+          "mean_psnr_db": 60.23782138195438,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 96473.48840000632,
+          "inference_ms_per_image": 26.294218697194417,
+          "mean_routing_weights": [
+            0.9301331871325994,
+            0.0009175256900192739,
+            0.05638513555209975,
+            0.01256415159355544
+          ]
+        }
+      }
+    },
+    "salt_and_pepper_low": {
+      "corruption_type": "salt_and_pepper",
+      "severity": "low",
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.0405182980262931,
+          "mean_ssim": 0.766229254181166,
+          "mean_psnr_db": 25.27844240776555,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 74254.56620001933,
+          "inference_ms_per_image": 20.23836636686272
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.031940127952640146,
+          "mean_ssim": 0.8111962666463449,
+          "mean_psnr_db": 27.061095758886747,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 145372.4086999282,
+          "inference_ms_per_image": 39.62180667754925
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.031940127952640146,
+          "mean_ssim": 0.8111962666463449,
+          "mean_psnr_db": 27.061095758886747,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 59929.791600079625,
+          "inference_ms_per_image": 16.334094194625138,
+          "routing_accuracy": 1.0,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              3669,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.03169637304393366,
+          "mean_ssim": 0.8147653723711797,
+          "mean_psnr_db": 27.138955308358458,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 192333.28129991423,
+          "inference_ms_per_image": 52.42117233576294,
+          "mean_routing_weights": [
+            0.000645980975640398,
+            0.9988130436147646,
+            9.562217771711877e-05,
+            0.0004453538879857818
+          ]
+        }
+      }
+    },
+    "salt_and_pepper_medium": {
+      "corruption_type": "salt_and_pepper",
+      "severity": "medium",
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.0424622810319062,
+          "mean_ssim": 0.7407386132045609,
+          "mean_psnr_db": 24.870374653052817,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 72304.15079992963,
+          "inference_ms_per_image": 19.70677318068401
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.03285530549884005,
+          "mean_ssim": 0.7984712290874324,
+          "mean_psnr_db": 26.804600996099072,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 154027.16180004063,
+          "inference_ms_per_image": 41.980692777334596
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.03285530549884005,
+          "mean_ssim": 0.7984712290874324,
+          "mean_psnr_db": 26.804600996099072,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 67375.54299988551,
+          "inference_ms_per_image": 18.363462251263424,
+          "routing_accuracy": 1.0,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              3669,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.03281656064399746,
+          "mean_ssim": 0.8015507406680257,
+          "mean_psnr_db": 26.824300080302237,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 202662.1126000391,
+          "inference_ms_per_image": 55.23633485964544,
+          "mean_routing_weights": [
+            0.00020908604692935554,
+            0.9995373731154646,
+            7.671193389204626e-05,
+            0.0001768291838361367
+          ]
+        }
+      }
+    },
+    "salt_and_pepper_high": {
+      "corruption_type": "salt_and_pepper",
+      "severity": "high",
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.04597504352087155,
+          "mean_ssim": 0.7035311415332577,
+          "mean_psnr_db": 24.172707342198255,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 61432.445399899734,
+          "inference_ms_per_image": 16.74364824200047
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.03518373708238911,
+          "mean_ssim": 0.7724602798832051,
+          "mean_psnr_db": 26.20601374786535,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 139886.4594999468,
+          "inference_ms_per_image": 38.126590215303025
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.03518373708238911,
+          "mean_ssim": 0.7724602798832051,
+          "mean_psnr_db": 26.20601374786535,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 59079.68640013132,
+          "inference_ms_per_image": 16.10239476700227,
+          "routing_accuracy": 1.0,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              3669,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.035755018068289166,
+          "mean_ssim": 0.774226425193772,
+          "mean_psnr_db": 26.09861306632108,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 183239.61970001983,
+          "inference_ms_per_image": 49.94266004361402,
+          "mean_routing_weights": [
+            0.00012219994154763207,
+            0.9996613447820175,
+            3.0069701113513193e-05,
+            0.0001863843240002334
+          ]
+        }
+      }
+    },
+    "gaussian_blur_low": {
+      "corruption_type": "gaussian_blur",
+      "severity": "low",
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.039125264340767456,
+          "mean_ssim": 0.7829234475951716,
+          "mean_psnr_db": 25.604030323210512,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 50280.81650006061,
+          "inference_ms_per_image": 13.704229081510114
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.0299882254083269,
+          "mean_ssim": 0.8322808595014288,
+          "mean_psnr_db": 27.65456141058318,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 73222.04019998026,
+          "inference_ms_per_image": 19.956947451616315
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.02858843579868037,
+          "mean_ssim": 0.8436291804590482,
+          "mean_psnr_db": 28.021511523916597,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 27131.551499987836,
+          "inference_ms_per_image": 7.394808258377715,
+          "routing_accuracy": 0.9348596347778686,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              239,
+              0,
+              3430,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.025907331589750518,
+          "mean_ssim": 0.864377338121424,
+          "mean_psnr_db": 28.783975455116984,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 89162.47740002291,
+          "inference_ms_per_image": 24.30157465250011,
+          "mean_routing_weights": [
+            0.17531973338777565,
+            0.0003436285903115618,
+            0.8221455877538923,
+            0.002191051313367452
+          ]
+        }
+      }
+    },
+    "gaussian_blur_medium": {
+      "corruption_type": "gaussian_blur",
+      "severity": "medium",
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.039874472160630475,
+          "mean_ssim": 0.767913817059737,
+          "mean_psnr_db": 25.417562489419907,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 56921.632799945655,
+          "inference_ms_per_image": 15.514208994261558
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.029454127096226572,
+          "mean_ssim": 0.8299159774925833,
+          "mean_psnr_db": 27.786975842920626,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 89843.73479994247,
+          "inference_ms_per_image": 24.487253965642537
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.029454127096226572,
+          "mean_ssim": 0.8299159774925833,
+          "mean_psnr_db": 27.786975842920626,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 31441.775100000086,
+          "inference_ms_per_image": 8.56957620605072,
+          "routing_accuracy": 1.0,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              3669,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.029169442949973454,
+          "mean_ssim": 0.8289156799649113,
+          "mean_psnr_db": 27.853426875324722,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 103360.71270004322,
+          "inference_ms_per_image": 28.17135805397744,
+          "mean_routing_weights": [
+            0.01574053039140852,
+            7.47325343902299e-05,
+            0.9836677713789255,
+            0.0005169651256107462
+          ]
+        }
+      }
+    },
+    "gaussian_blur_high": {
+      "corruption_type": "gaussian_blur",
+      "severity": "high",
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.04419795205853687,
+          "mean_ssim": 0.7165592733733042,
+          "mean_psnr_db": 24.416769390049016,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 41694.287000078475,
+          "inference_ms_per_image": 11.36393758519446
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.034486982633320895,
+          "mean_ssim": 0.7681586412942907,
+          "mean_psnr_db": 26.21410686984703,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 64583.222999979625,
+          "inference_ms_per_image": 17.602404742431077
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.034486982633320895,
+          "mean_ssim": 0.7681586412942907,
+          "mean_psnr_db": 26.21410686984703,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 20652.61190001911,
+          "inference_ms_per_image": 5.628948460076073,
+          "routing_accuracy": 1.0,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              3669,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.0345889072744422,
+          "mean_ssim": 0.7633166860318957,
+          "mean_psnr_db": 26.157442489545005,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 68379.91369997326,
+          "inference_ms_per_image": 18.63720733169072,
+          "mean_routing_weights": [
+            0.017384433443600942,
+            8.892426144309729e-05,
+            0.9819332918928442,
+            0.0005933502022021333
+          ]
+        }
+      }
+    },
+    "rectangular_occlusion_low": {
+      "corruption_type": "rectangular_occlusion",
+      "severity": "low",
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.04762213988471792,
+          "mean_ssim": 0.7356930197536149,
+          "mean_psnr_db": 22.995526093103216,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 45007.30020002811,
+          "inference_ms_per_image": 12.266912019631539
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.041934357315878606,
+          "mean_ssim": 0.7658830514295968,
+          "mean_psnr_db": 23.998274879320405,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 58962.85559999524,
+          "inference_ms_per_image": 16.070552085035498
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.04016405371626706,
+          "mean_ssim": 0.7816522317024952,
+          "mean_psnr_db": 23.619738067518824,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 28213.774400006514,
+          "inference_ms_per_image": 7.689772254021944,
+          "routing_accuracy": 0.8833469610248024,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              425,
+              0,
+              3,
+              3241
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.03716962645832996,
+          "mean_ssim": 0.8030846866868633,
+          "mean_psnr_db": 24.061562688645047,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 70561.47890005377,
+          "inference_ms_per_image": 19.231801281017653,
+          "mean_routing_weights": [
+            0.1543957772703929,
+            0.002159445531321753,
+            0.007533363700799024,
+            0.8359114137578691
+          ]
+        }
+      }
+    },
+    "rectangular_occlusion_medium": {
+      "corruption_type": "rectangular_occlusion",
+      "severity": "medium",
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.055122414704855925,
+          "mean_ssim": 0.69591604821784,
+          "mean_psnr_db": 21.467712601968138,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 45668.69120004412,
+          "inference_ms_per_image": 12.44717666940423
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.04834734477279426,
+          "mean_ssim": 0.7291388006098558,
+          "mean_psnr_db": 22.4092012802045,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 57165.89540008863,
+          "inference_ms_per_image": 15.58078370130516
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.048269805806831365,
+          "mean_ssim": 0.7302073442048941,
+          "mean_psnr_db": 22.371403849849457,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 30521.88389992807,
+          "inference_ms_per_image": 8.318856336856928,
+          "routing_accuracy": 0.9896429544835105,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              38,
+              0,
+              0,
+              3631
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.04643123930954225,
+          "mean_ssim": 0.7357533801378493,
+          "mean_psnr_db": 22.446303643397915,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 68138.09609992313,
+          "inference_ms_per_image": 18.571299018785265,
+          "mean_routing_weights": [
+            0.022308069898241176,
+            0.0005571637082875469,
+            0.0015176938048510902,
+            0.9756170720974799
+          ]
+        }
+      }
+    },
+    "rectangular_occlusion_high": {
+      "corruption_type": "rectangular_occlusion",
+      "severity": "high",
+      "systems": {
+        "task1_universal": {
+          "samples": 3669,
+          "mean_l1": 0.06631881575325783,
+          "mean_ssim": 0.644480545145837,
+          "mean_psnr_db": 19.779248482721577,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 48161.02100005082,
+          "inference_ms_per_image": 13.126470700477194
+        },
+        "task2_hard_oracle": {
+          "samples": 3669,
+          "mean_l1": 0.05870455427110016,
+          "mean_ssim": 0.6783794591263744,
+          "mean_psnr_db": 20.554123419706812,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 63284.70200000447,
+          "inference_ms_per_image": 17.248487871355813
+        },
+        "task2_hard_predicted": {
+          "samples": 3669,
+          "mean_l1": 0.0586916792779373,
+          "mean_ssim": 0.6784185111668883,
+          "mean_psnr_db": 20.552542494375917,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 31267.176499968627,
+          "inference_ms_per_image": 8.52198868900753,
+          "routing_accuracy": 0.9989097846824748,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0,
+              3665
+            ]
+          ]
+        },
+        "task3_soft_moe": {
+          "samples": 3669,
+          "mean_l1": 0.05744588761733838,
+          "mean_ssim": 0.6804832514120598,
+          "mean_psnr_db": 20.52781250133083,
+          "exact_match_samples": 0,
+          "psnr_cap_db": 100.0,
+          "inference_ms_total": 74307.52119998215,
+          "inference_ms_per_image": 20.252799454887477,
+          "mean_routing_weights": [
+            0.004445052672669797,
+            0.00016700994601114044,
+            0.00038794262748022615,
+            0.9949999949885961
+          ]
+        }
+      }
+    }
+  },
+  "overall": {
+    "task1_universal": {
+      "samples": 36690,
+      "mean_l1": 0.04608000529725404,
+      "mean_ssim": 0.7335700323354909,
+      "mean_psnr_db": 23.94727046589138,
+      "exact_match_samples": 0,
+      "psnr_cap_db": 100.0,
+      "inference_ms_total": 529931.8036000041,
+      "inference_ms_per_image": 14.443494238212157
+    },
+    "task2_hard_oracle": {
+      "samples": 36690,
+      "mean_l1": 0.03428947620315167,
+      "mean_ssim": 0.7985883191613743,
+      "mean_psnr_db": 32.868895420543375,
+      "exact_match_samples": 3669,
+      "psnr_cap_db": 100.0,
+      "inference_ms_total": 846965.9689998371,
+      "inference_ms_per_image": 23.08438182065514
+    },
+    "task2_hard_predicted": {
+      "samples": 36690,
+      "mean_l1": 0.03403870708337797,
+      "mean_ssim": 0.8010103192177349,
+      "mean_psnr_db": 32.675890803031685,
+      "exact_match_samples": 3572,
+      "psnr_cap_db": 100.0,
+      "inference_ms_total": 362051.7473999935,
+      "inference_ms_per_image": 9.867859018806037,
+      "routing_accuracy": 0.978032161351867,
+      "confusion_matrix": [
+        [
+          3572,
+          0,
+          80,
+          17
+        ],
+        [
+          0,
+          11007,
+          0,
+          0
+        ],
+        [
+          239,
+          0,
+          10768,
+          0
+        ],
+        [
+          467,
+          0,
+          3,
+          10537
+        ]
+      ]
+    },
+    "task3_soft_moe": {
+      "samples": 36690,
+      "mean_l1": 0.03328038431885791,
+      "mean_ssim": 0.8062426410081375,
+      "mean_psnr_db": 29.013021349029664,
+      "exact_match_samples": 0,
+      "psnr_cap_db": 100.0,
+      "inference_ms_total": 1148618.701999978,
+      "inference_ms_per_image": 31.306042572907547,
+      "mean_routing_weights": [
+        0.1320704051160806,
+        0.30023201917740316,
+        0.28537731905236147,
+        0.2823202566474503
+      ]
+    }
+  }
+}

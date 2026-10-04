@@ -4,15 +4,44 @@ Images/
 .venv/
 __pycache__/
 *.pyc
-checkpoints/
 mlruns/
 wandb/
 manifests/
-*.pt
-*.pth
-*.onnx
+visual_samples/
+FS2K/
 
-visual_samples
+# Local configuration and private environment data
+.env
+.env.*
+!.env.example
+.agents/
+.codex/
+mcp_config.json
 
+# Personal working notes
+todo.md
 
-FS2K
+# Dependency/build caches
+node_modules/
+.pytest_cache/
+.mypy_cache/
+
+# Generated LaTeX files (submit the PDF separately)
+/report/*.aux
+/report/*.bbl
+/report/*.blg
+/report/*.fdb_latexmk
+/report/*.fls
+/report/*.log
+/report/*.out
+/report/*.pdf
+/report/*.synctex.gz
+/report/*.toc
+
+# Local report archives; regenerate from report/ when needed
+/report.zip
+/report (2).zip
+
+# OS/editor metadata
+.DS_Store
+Thumbs.db

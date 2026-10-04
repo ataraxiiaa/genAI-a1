@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VisionStudio - The Art of Deep Vision</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&amp;family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-tertiary": "#ffffff",
+            "secondary-fixed": "#ffdeac",
+            "error-container": "#ffdad6",
+            "tertiary": "#8d4b4d",
+            "on-error": "#ffffff",
+            "on-primary-fixed-variant": "#910325",
+            "tertiary-fixed-dim": "#ffb3b3",
+            "primary-fixed": "#ffdada",
+            "error": "#ba1a1a",
+            "secondary-container": "#feb300",
+            "outline": "#8d7070",
+            "surface-container-low": "#fdf3d5",
+            "on-secondary-container": "#6a4800",
+            "on-surface-variant": "#594041",
+            "on-primary": "#ffffff",
+            "inverse-on-surface": "#faf0d3",
+            "surface-tint": "#b3253a",
+            "inverse-primary": "#ffb3b4",
+            "on-surface": "#201b09",
+            "outline-variant": "#e1bebe",
+            "secondary-fixed-dim": "#ffba36",
+            "tertiary-container": "#cf8182",
+            "surface-variant": "#ece2c5",
+            "surface-bright": "#fff9ed",
+            "on-secondary": "#ffffff",
+            "surface": "#fff9ed",
+            "on-background": "#201b09",
+            "on-tertiary-fixed": "#3a090e",
+            "secondary": "#7e5700",
+            "surface-container-highest": "#ece2c5",
+            "on-primary-fixed": "#40000b",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-high": "#f2e8ca",
+            "inverse-surface": "#35301c",
+            "primary-fixed-dim": "#ffb3b4",
+            "on-tertiary-container": "#531c20",
+            "tertiary-fixed": "#ffdad9",
+            "surface-container": "#f7eed0",
+            "on-error-container": "#93000a",
+            "on-primary-container": "#640016",
+            "primary": "#b3253a",
+            "primary-container": "#ff5e6c",
+            "on-secondary-fixed-variant": "#5f4100",
+            "background": "#fff9ed",
+            "on-secondary-fixed": "#281900",
+            "on-tertiary-fixed-variant": "#713437"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "margin": "2rem",
+            "space-xl": "3rem",
+            "space-lg": "1.5rem",
+            "space-sm": "0.5rem",
+            "gutter": "1.5rem",
+            "space-md": "1.0rem"
+          },
+          "fontFamily": {
+            "body-md": ["DM Sans"],
+            "headline-lg": ["Newsreader"],
+            "headline-sm": ["Newsreader"],
+            "label-sm": ["DM Sans"],
+            "body-sm": ["DM Sans"],
+            "label-md": ["DM Sans"],
+            "headline-md": ["Newsreader"],
+            "body-lg": ["DM Sans"],
+            "headline-xl": ["Newsreader"]
+          },
+          "fontSize": {
+            "body-md": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "headline-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+            "headline-sm": ["22px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "500" }],
+            "body-sm": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "label-md": ["13px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "headline-md": ["28px", { "lineHeight": "36px", "fontWeight": "400" }],
+            "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-full flex flex-col selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-50 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-inverse-surface">
+<div class="flex justify-between items-center w-full px-8 max-w-7xl mx-auto h-16">
+<div class="flex items-center gap-12">
+<a class="text-headline-sm font-headline-sm font-extrabold text-primary dark:text-inverse-primary tracking-tight" href="#">VisionStudio</a>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-label-md font-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors" href="#">Models</a>
+<a class="text-label-md font-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors" href="#">Gallery</a>
+<a class="text-label-md font-label-md text-primary font-bold hover:text-primary transition-colors" href="#">Playground</a>
+<a class="text-label-md font-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors" href="#">Docs</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden sm:inline-flex text-label-md font-label-md text-on-surface-variant hover:text-primary px-4 py-2 transition-all duration-200 active:scale-[0.98]">Sign In</button>
+<button class="bg-primary-container text-on-primary-container text-label-md font-label-md px-5 py-2.5 rounded-xl font-medium shadow-sm hover:opacity-95 transition-all duration-200 active:scale-[0.98]">Launch Studio</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow max-w-7xl mx-auto px-8 py-12 w-full space-y-16">
+<!-- Hero Section -->
+<section class="text-center max-w-3xl mx-auto space-y-6 pt-4">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-high text-primary text-label-sm font-label-sm border border-outline-variant">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+        v4.2 Architecture Release
+      </div>
+<h1 class="text-headline-xl font-headline-xl text-on-background font-normal">The Art of Deep Vision</h1>
+<p class="text-body-lg font-body-lg text-on-surface-variant leading-relaxed">
+        An editorial fusion of high-end computational photography and generative AI. Explore neural autoencoders, hard-routed specialists, and real-time gating weight architectures designed for visionary creators.
+      </p>
+</section>
+<!-- 2x2 Grid of 4 Distinct Feature Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Card 1: Universal Autoencoder -->
+<div class="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group">
+<div class="space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-label-sm font-label-sm uppercase tracking-wider text-primary">Core Model</span>
+<h3 class="text-headline-sm font-headline-sm text-on-background mt-1">Universal Autoencoder</h3>
+</div>
+<span class="bg-secondary-container text-on-secondary-container text-label-sm font-label-sm px-2.5 py-1 rounded">Active</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+            High-fidelity latent compression featuring real-time image comparison sliders and live fidelity diagnostic feedback.
+          </p>
+<!-- Interactive Image Comparison Preview -->
+<div class="relative h-48 rounded-lg overflow-hidden border border-outline-variant bg-surface-container my-4">
+<div class="absolute inset-0 bg-cover bg-center filter grayscale contrast-125" data-alt="A detailed editorial black and white architectural photograph of a brutalist concrete museum gallery with sharp geometric shadows and soft natural light filtering through high clerestory windows, exuding an air of sophisticated minimalist art." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC8fvY1Z3u3URgVHyqGP3JP4ODymb4-HnWXP2_Sz67cHUjKxrOy9rQhkpe6O5P33hcD4zM07ITOz8YVT91AuJgTjCDz-E7FxrASO39kkhi7ARcxOQDnd6Z0e5xn-BsO44dhEqeCjn3CBZafea9ww_P4An17h_nwnoYpTXZuQECL5cVY2MbdUQhfPtMgpTYVfIR2ix1SYMT690oAovsYoB_sz_pO1UTPwwQU_rky4G-I3SZ7qoIJ2Y9uS5lf9wxYpnbT4hhFudn0hZ4')"></div>
+<div class="absolute inset-y-0 left-0 w-1/2 overflow-hidden border-r-2 border-primary-container">
+<div class="absolute inset-0 w-[200px] h-full bg-cover bg-center" data-alt="A detailed editorial color photograph of a brutalist concrete museum gallery featuring warm amber morning light, vibrant red art installations, and precise geometric shadows, creating a high-end modern art publication aesthetic." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD55XUrRkJ9Gcg6KLBrMPU-WTRHmQFi_xPJFxjl8LDVB8wtX2TXknMmJ9Z_80sWsJ_E-a1V1u9rR5RwCaZOSPDe_b8YUeqT-HHy-AryfkkHva8f-zd6CoE3jpgnmr5XRMAdbsfNdL4vfkp-p8pSWPLBiHI6EVc5qvZuJ7ot6ZdpW15LDZknX6QBvUJsotLncEjgRpgUGfsOqFqfuoYwMC6q1kmSV6N7vyuu8-4ACQNuSHsHmLBwjumhsTX4RNn9xoWufuufXe7H9t4')"></div>
+</div>
+<div class="absolute bottom-3 left-3 bg-inverse-surface/80 text-inverse-on-surface text-label-sm px-2 py-0.5 rounded backdrop-blur">Original vs. Reconstructed</div>
+</div>
+</div>
+<!-- Live Metrics -->
+<div class="grid grid-cols-3 gap-2 pt-4 border-t border-outline-variant/40 mt-4">
+<div class="bg-surface p-2 rounded text-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant block">PSNR</span>
+<span class="text-body-md font-bold text-primary">34.2 dB</span>
+</div>
+<div class="bg-surface p-2 rounded text-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant block">SSIM</span>
+<span class="text-body-md font-bold text-primary">0.96</span>
+</div>
+<div class="bg-surface p-2 rounded text-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant block">Latent Dim</span>
+<span class="text-body-md font-bold text-primary">512</span>
+</div>
+</div>
+</div>
+<!-- Card 2: Hard-Routed Specialists -->
+<div class="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group">
+<div class="space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-label-sm font-label-sm uppercase tracking-wider text-primary">Routing Engine</span>
+<h3 class="text-headline-sm font-headline-sm text-on-background mt-1">Hard-Routed Specialists</h3>
+</div>
+<span class="bg-primary-container/20 text-primary text-label-sm font-label-sm px-2.5 py-1 rounded">Multi-Path</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+            Dynamic task allocation dispatching pixel inputs to optimized specialist sub-networks based on structural artifact detection.
+          </p>
+<!-- Active Routing Badges Grid -->
+<div class="grid grid-cols-2 gap-3 py-4">
+<div class="p-3 rounded-lg bg-surface border border-outline-variant/60 flex items-center justify-between">
+<span class="text-label-md font-label-md font-medium">Clean</span>
+<span class="bg-secondary-container text-on-secondary-container text-label-sm px-2 py-0.5 rounded-full font-bold">Active</span>
+</div>
+<div class="p-3 rounded-lg bg-surface/50 border border-outline-variant/30 flex items-center justify-between opacity-70">
+<span class="text-label-md font-label-md font-medium">Noise</span>
+<span class="bg-surface-variant text-on-surface-variant text-label-sm px-2 py-0.5 rounded-full">Standby</span>
+</div>
+<div class="p-3 rounded-lg bg-surface/50 border border-outline-variant/30 flex items-center justify-between opacity-70">
+<span class="text-label-md font-label-md font-medium">Blur</span>
+<span class="bg-surface-variant text-on-surface-variant text-label-sm px-2 py-0.5 rounded-full">Standby</span>
+</div>
+<div class="p-3 rounded-lg bg-surface/50 border border-outline-variant/30 flex items-center justify-between opacity-70">
+<span class="text-label-md font-label-md font-medium">Occlusion</span>
+<span class="bg-surface-variant text-on-surface-variant text-label-sm px-2 py-0.5 rounded-full">Standby</span>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t border-outline-variant/40 flex items-center justify-between text-body-sm text-on-surface-variant">
+<span>Routing Latency: <strong class="text-on-background">1.2ms</strong></span>
+<span class="text-primary font-medium hover:underline cursor-pointer">Configure router →</span>
+</div>
+</div>
+<!-- Card 3: Soft MoE -->
+<div class="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group">
+<div class="space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-label-sm font-label-sm uppercase tracking-wider text-primary">Mixture of Experts</span>
+<h3 class="text-headline-sm font-headline-sm text-on-background mt-1">Soft MoE</h3>
+</div>
+<span class="bg-tertiary-container text-on-tertiary-container text-label-sm font-label-sm px-2.5 py-1 rounded">Adaptive</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+            Real-time gating weight progress distributions across four distinct expert networks for seamless generative synthesis.
+          </p>
+<!-- Real-time gating weight progress bars -->
+<div class="space-y-3 py-3">
+<div>
+<div class="flex justify-between text-label-sm mb-1">
+<span>Expert Alpha (Texture Synthesis)</span>
+<span class="font-bold text-primary">68%</span>
+</div>
+<div class="h-2 w-full bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 68%;"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-sm mb-1">
+<span>Expert Beta (Semantic Structure)</span>
+<span class="font-bold text-primary">19%</span>
+</div>
+<div class="h-2 w-full bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary-container rounded-full" style="width: 19%;"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-sm mb-1">
+<span>Expert Gamma (Color Harmony)</span>
+<span class="font-bold text-primary">9%</span>
+</div>
+<div class="h-2 w-full bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container rounded-full" style="width: 9%;"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-sm mb-1">
+<span>Expert Delta (Edge Refinement)</span>
+<span class="font-bold text-primary">4%</span>
+</div>
+<div class="h-2 w-full bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-outline rounded-full" style="width: 4%;"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t border-outline-variant/40 flex items-center justify-between text-body-sm text-on-surface-variant">
+<span>Active Experts: <strong class="text-on-background">4 / 4</strong></span>
+<span class="text-primary font-medium">Top-K = 2</span>
+</div>
+</div>
+<!-- Card 4: Face-to-Sketch cGAN -->
+<div class="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group">
+<div class="space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-label-sm font-label-sm uppercase tracking-wider text-primary">Generative Adversarial</span>
+<h3 class="text-headline-sm font-headline-sm text-on-background mt-1">Face-to-Sketch cGAN</h3>
+</div>
+<span class="bg-secondary-container text-on-secondary-container text-label-sm font-label-sm px-2.5 py-1 rounded">Interactive</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+            Transform portraits into artistic vector lines instantly with adjustable rendering styles and direct export tools.
+          </p>
+<!-- Style Selector Tabs & Preview -->
+<div class="space-y-3">
+<div class="flex rounded-lg bg-surface p-1 border border-outline-variant/50">
+<button class="flex-1 py-1.5 text-label-md font-label-md font-bold bg-primary text-on-primary rounded shadow-sm transition-all">Pencil</button>
+<button class="flex-1 py-1.5 text-label-md font-label-md text-on-surface-variant hover:text-primary transition-all">Contour</button>
+<button class="flex-1 py-1.5 text-label-md font-label-md text-on-surface-variant hover:text-primary transition-all">Comic</button>
+</div>
+<div class="flex gap-3 items-center bg-surface p-3 rounded-lg border border-outline-variant/50">
+<div class="w-16 h-16 rounded bg-cover bg-center shrink-0 border border-outline-variant" data-alt="A close-up studio portrait of a thoughtful creative individual with subtle dramatic lighting, capturing refined facial features and an expressive artistic mood against a warm minimalist background." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA7bvtD6b6hD7lo0ZteFQE2e6MZ-Eta_nu3AYegIuJrFrrYojWKWHX7uA6Ol8r0QPmcCQosQQTe0cImzDnKvz6jq6L5pmGmfznPQ_z5P6yLSUJnuUTCEw-PElzHOoVArFXH36rrL-LkTNECYy31VA7Cl8YVithL06f5xDkUBLgSBvTphbKggwlEPL_jiiDnHZdC1NF6GtMDpepz5s87Yhi5r0LkvrhPqm6AH9ztw8x1TBDFGLEihZEx0K0hyNHY2pWTIo6v_YjOA7Q')"></div>
+<div class="flex-grow text-center">
+<span class="material-symbols-outlined text-primary text-xl">arrow_forward</span>
+</div>
+<div class="w-16 h-16 rounded bg-cover bg-center shrink-0 border border-outline-variant filter contrast-200 invert" data-alt="A fine art pencil sketch portrait rendering delicate facial contours and expressive cross-hatching shading techniques on a textured cream paper canvas." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAYkbUGAWD2vKCWaYAYF38pSzl2JdC1v7FfDxDtyuQXekk_z_tkVI2PG63UXHJzKJtyXjgx4C73drEQX3CNFMqudolb1QH4S4dGA5-fd8zi1_U_b3dvYRwltBG-oc3YIEidMIB2m9Z_MuVrp-bYLtgz-u1CUvwTVBFo-_pNzV8u-yGE8tttUwTpk33YQlIs5f-Qho9JauJ83pFlZIb1DK3nJNF0jns0h57QE0ClXnnXJSF-Wqk8fLUFKqm7fn-om8II9WxVs7BDBIM')"></div>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t border-outline-variant/40 flex items-center justify-between">
+<span class="text-body-sm text-on-surface-variant">Model Checkpoint: <strong class="text-on-background">v2.1-finetuned</strong></span>
+<button class="bg-primary-container text-on-primary-container text-label-md font-label-md px-4 py-2 rounded font-medium shadow-sm hover:opacity-95 transition-all active:scale-[0.98]">Export Sketch</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Clean Editorial Footer -->
+<footer class="bg-surface-container-low dark:bg-inverse-surface border-t border-outline-variant dark:border-inverse-surface mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center w-full px-8 max-w-7xl mx-auto py-8 gap-4">
+<div class="flex items-center gap-3">
+<span class="text-headline-sm font-headline-sm font-extrabold text-primary dark:text-inverse-primary tracking-tight">VisionStudio</span>
+<span class="text-body-sm text-on-surface-variant dark:text-surface-variant">© 2024 VisionStudio AI. All rights reserved.</span>
+</div>
+<div class="flex flex-wrap items-center gap-8">
+<a class="text-label-md font-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="text-label-md font-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="text-label-md font-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors" href="#">API Docs</a>
+<a class="text-label-md font-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors" href="#">Contact</a>
+</div>
+</div>
+</footer>
+</body></html>

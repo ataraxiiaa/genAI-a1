@@ -1,0 +1,31 @@
+{
+  "checkpoint": "checkpoints\\best_cgan_generator.pt",
+  "checkpoint_epoch": 21,
+  "split": "FS2K official held-out test",
+  "overall": {
+    "test_l1": 0.10720352636183653,
+    "test_ssim": 0.511720788054325,
+    "test_psnr": 15.478223663671066,
+    "total_test_pairs": 1046
+  },
+  "per_style": {
+    "Style 1": {
+      "count": 619,
+      "l1": 0.08068388451931935,
+      "ssim": 0.5579164451851791,
+      "psnr": 17.208632566817165
+    },
+    "Style 2": {
+      "count": 381,
+      "l1": 0.15505157737672484,
+      "ssim": 0.422725169794766,
+      "psnr": 12.27542915838597
+    },
+    "Style 3": {
+      "count": 46,
+      "l1": 0.06775897992369921,
+      "ssim": 0.6272038052911344,
+      "psnr": 18.72043226076209
+    }
+  }
+}

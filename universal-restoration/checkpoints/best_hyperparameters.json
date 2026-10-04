@@ -1,0 +1,15 @@
+{
+  "best_trial_number": 46,
+  "best_val_loss": 0.09205161666740543,
+  "best_params": {
+    "lr": 0.0001175188269577932,
+    "batch_size": 16,
+    "base_channels": 64,
+    "latent_dim": 256,
+    "dropout": 0.05,
+    "alpha": 0.9
+  },
+  "total_trials": 52,
+  "complete_trials": 22,
+  "pruned_trials": 28
+}
