@@ -20,6 +20,7 @@ mcp_config.json
 
 # Personal working notes
 todo.md
+/Demo/
 
 # Dependency/build caches
 node_modules/

@@ -1,4 +1,4 @@
-# YouTube Demonstration Script (Target: 6 minutes 15 seconds)
+# YouTube Demonstration Script (Target: 6 minutes 50 seconds)
 
 This script covers every video item required by the assignment: application
 startup, image uploading, runtime corruption, universal restoration, hard
@@ -195,7 +195,25 @@ running. Point briefly to the frontend and backend container messages.
 > files and report figures are retained as artifacts, so the paper's claims can
 > be traced back to saved results.
 
-### 5:45–6:15 — Reproducibility and conclusion
+### 5:45–6:20 — Limitations and genuine failure cases
+
+**On screen:** Show `report/figures/fig_failure_cases.png`, preferably zoomed so
+the input, output, target, and error-map rows are readable.
+
+**Say:**
+
+> These are genuine held-out failure cases rather than cherry-picked successes.
+> Severe occlusion removes up to 35 percent of the original image, so the exact
+> hidden fur, face, or background cannot always be recovered. The universal
+> autoencoder also shares one compressed representation across three corruption
+> families, which can make details smoother than a specialist. For the GAN, the
+> three FS2K styles are imbalanced and Style Two has the weakest held-out
+> metrics. At 128-by-128 resolution, the strong pixel loss can average fine
+> pencil texture, while adversarial training may create a plausible sketch that
+> differs from the single reference. This motivates stronger inpainting,
+> balanced sampling, and perceptual or edge-aware losses.
+
+### 6:20–6:50 — Reproducibility and conclusion
 
 **On screen:** Briefly show `README.md`, `evaluation_results/`, `report/`, and
 `AI_USE_APPENDIX.md` in File Explorer or GitHub. End on the running app.

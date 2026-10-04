@@ -6,6 +6,7 @@ This folder contains the complete technical report written in the style of a res
 - `main.tex`: The primary LaTeX research paper document.
 - `IEEEtran.cls`: Official IEEE Transactions LaTeX document class file (included locally so the project is completely self-contained).
 - `references.bib`: Complete BibTeX bibliography with full citations.
+- `../ARCHITECTURE_EXPLANATION_SCRIPTS.md`: Plain-language presentation scripts for all four task architectures.
 - `figures/`: All 10 high-resolution publication figures and qualitative comparison grids:
   - `fig_pipeline_architecture.png` (Unified multi-task architecture and deployment)
   - `fig_training_curves.png` (4-panel convergence plot for all 4 tasks)

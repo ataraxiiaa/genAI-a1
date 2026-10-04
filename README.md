@@ -15,9 +15,7 @@ Nginx. The complete application starts with Docker Compose.
 ## Submission links
 
 - GitHub: <https://github.com/ataraxiiaa/genAI-a1>
-- YouTube demonstration: **URL pending upload.** The assignment requires one
-  five-to-seven-minute public/unlisted video. Replace `YOUTUBE_URL_PENDING` in
-  this README and `report/main.tex` with the final URL before submission.
+- YouTube demonstration: <https://youtu.be/Vw2ApzAKeSw>
 - AI-use disclosure: [AI_USE_APPENDIX.md](AI_USE_APPENDIX.md)
 - Experiment tracking and run IDs: [TRACKING.md](TRACKING.md)
 
@@ -243,6 +241,7 @@ npm run dev
 | `backend/`, `frontend/` | FastAPI/ONNX backend and React/Tailwind frontend |
 | `evaluation_results/` | Machine-readable official-test results and MLflow store |
 | `report/` | IEEE LaTeX report and generated figures |
+| `ARCHITECTURE_EXPLANATION_SCRIPTS.md` | Simple presentation scripts explaining each task's architecture |
 
 ## Reproducibility notes
 

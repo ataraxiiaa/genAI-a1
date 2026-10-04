@@ -18,8 +18,8 @@
 
 \title{Adaptive Restoration and Multi-Style Synthesis: From Mixture-of-Experts Denoising to Conditional Adversarial Facial Translation}
 
-\author{Technical Report: Deep Generative Vision Systems Group%
-\thanks{Manuscript received October 2, 2026. This comprehensive technical report documents the complete theoretical formulation, algorithmic design, empirical validation, and microservice deployment of multi-task image restoration and conditional generative translation systems across the Oxford-IIIT Pet and FS2K benchmark corpora.}
+\author{Ali Abdullah\\Student ID: 23i-0842\\Course: GenAI%
+\thanks{This technical report documents the theoretical formulation, implementation, empirical validation, and deployment of multi-task image restoration and conditional generative translation systems across the Oxford-IIIT Pet and FS2K benchmark corpora.}
 }
 
 \markboth{IEEE Transactions on Pattern Analysis and Machine Intelligence / Technical Report, October 2026}%
@@ -148,6 +148,9 @@ The machine-readable annotations encode the targets as Style 1, Style 2, and Sty
 \subsection{Task 1: Universal Denoising Autoencoder}
 The Universal Autoencoder comprises a symmetrical convolutional encoder-decoder network operating across all corruption types without conditional guidance.
 
+\subsubsection{Plain-Language Architecture Overview}
+Task 1 uses one model to repair every supported type of image damage. The encoder makes the image smaller in four steps and keeps the most useful visual information in a compact bottleneck. The decoder then enlarges this information in four steps to rebuild a clean RGB image. The model is not told whether the input contains noise, blur, or a blocked region; it must recognize and repair the damage by itself. In short, the data flow is: damaged image $\rightarrow$ compress useful features $\rightarrow$ rebuild clean image.
+
 \subsubsection{Architecture}
 The encoder projects the input image $X \in \mathbb{R}^{3 \times 128 \times 128}$ through four strided downsampling stages:
 \begin{equation}
@@ -180,6 +183,9 @@ where:
 \subsection{Task 2: Hard-Routed Specialist Pipeline}
 To resolve the representational bottleneck of Task 1, Task 2 decouples degradation identification from image restoration via a modular two-tier hierarchy.
 
+\subsubsection{Plain-Language Architecture Overview}
+Task 2 divides the work between a small decision model and three repair models. First, the classifier labels the input as clean, noisy, blurred, or occluded. It then chooses exactly one route. A clean image is returned unchanged, while a damaged image is sent to the matching noise, blur, or occlusion specialist. Each specialist has an encoder-decoder shape similar to a small autoencoder, but it learns only one repair job. In short, the data flow is: image $\rightarrow$ classify the damage $\rightarrow$ choose one specialist $\rightarrow$ restored image.
+
 \subsubsection{Autonomous Degradation Classifier}
 We deploy a convolutional classifier $C_\phi(X)$ trained to map any degraded input $X$ into logits over the four degradation classes:
 \begin{equation}
@@ -201,6 +207,9 @@ Depending on the predicted discrete class $\hat{y}$, execution is routed as foll
 
 \subsection{Task 3: Differentiable Soft Mixture-of-Experts (MoE)}
 Hard routing uses a discrete classifier decision, whereas Task 3 computes a differentiable weighted combination of branch outputs. The measured effect of routing errors is reported in the official-test confusion matrix and restoration metrics below.
+
+\subsubsection{Plain-Language Architecture Overview}
+Task 3 uses the same clean, noise, blur, and occlusion branches, but it does not force a single choice. A gating network gives every branch a weight, and the four weights add to one. All branches produce an answer, and the final image is their weighted blend. For example, a mostly blurred image may receive a large blur weight and small weights from the other branches. This soft decision lets the complete system train together. In short, the data flow is: image $\rightarrow$ calculate four weights $\rightarrow$ run four branches $\rightarrow$ blend their outputs.
 
 \begin{figure}[!t]
 \centering
@@ -236,6 +245,9 @@ This term penalizes deviation of batch-mean routing weights from a uniform targe
 
 \subsection{Task 4: Style-Conditioned Face-to-Sketch cGAN}
 Task 4 synthesizes sketches from natural portrait images under explicit discrete style conditioning $s \in \{0, 1, 2\}$.
+
+\subsubsection{Plain-Language Architecture Overview}
+Task 4 contains two networks during training. The generator turns a face photo into a sketch, while the discriminator checks small areas of a real or generated sketch and judges whether they look genuine. A learned style vector tells both networks which of the three sketch styles is requested. The generator uses a U-Net: it shrinks the photo to understand the face, then enlarges it to draw the sketch, while skip connections carry useful edges directly across the network. During deployment, only the generator is needed. In short, the training flow is: photo plus style $\rightarrow$ generated sketch $\rightarrow$ local realism feedback.
 
 \subsubsection{Spatial Broadcast Conditioning}
 To inject style conditioning deeply throughout all convolutional feature maps without spatial bottlenecking, we implement \textit{Spatial Broadcasting}. The discrete style scalar $s \in \{0, 1, 2\}$ is embedded into a dense continuous vector $v_s = \text{Embedding}(s) \in \mathbb{R}^{d_{\text{embed}}}$. This vector is tiled and spatially broadcast across the entire spatial grid:
@@ -649,11 +661,10 @@ The saved official-test run shows that Soft MoE has the highest overall restorat
 \section{Submission Links}
 \label{sec:submission_links}
 The complete source repository is available at
-\url{https://github.com/ataraxiiaa/genAI-a1}. The required five-to-seven-minute
-YouTube demonstration has not yet been supplied; replace
-\texttt{YOUTUBE\_URL\_PENDING} with the final public or unlisted video URL before
-submission. Trained PyTorch and ONNX model artifacts are managed through Git
-LFS, with clone and retrieval instructions in the repository README.
+\url{https://github.com/ataraxiiaa/genAI-a1}. The five-to-seven-minute YouTube
+demonstration is available at \url{https://youtu.be/Vw2ApzAKeSw}. Trained
+PyTorch and ONNX model artifacts are managed through Git LFS, with clone and
+retrieval instructions in the repository README.
 
 \appendices
 \section{AI-Assisted Development Disclosure}
